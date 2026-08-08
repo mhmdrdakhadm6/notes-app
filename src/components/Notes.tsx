@@ -5,26 +5,82 @@ import {
   CalendarDays,
   Layers,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AddNoteModal from "./AddNoteModal";
 import Empty from "./Empty";
 import { useNotes } from "../hooks/useNotes";
 import NotesMap from "./NotesMap";
 import Footer from "./Footer";
 import EditModal from "./EditModal";
-import { useMemo } from "react";
 import NotePreview from "./NotePreview";
+import type { NotesType } from "../types/nots";
 
 const parseLocalDate = (dateValue: string) => {
   return new Date(`${dateValue}T00:00:00`);
 };
 
+const isExpiredNote = (note: NotesType, today: Date) => {
+  if (note.isPermanent || note.recurrence !== "none" || !note.customDate) {
+    return false;
+  }
+
+  const selectedDate = parseLocalDate(note.customDate);
+
+  if (Number.isNaN(selectedDate.getTime())) {
+    return false;
+  }
+
+  selectedDate.setHours(0, 0, 0, 0);
+  return selectedDate < today;
+};
+
 export default function Notes() {
-  const { setIsOpen, notes } = useNotes();
+  const { setIsOpen, notes, setNotes } = useNotes();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"today" | "all">("today");
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+
+  useEffect(() => {
+    const removeExpiredNotes = () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      setNotes((currentNotes) => {
+        const activeNotes = currentNotes.filter(
+          (note) => !isExpiredNote(note, today),
+        );
+
+        return activeNotes.length === currentNotes.length
+          ? currentNotes
+          : activeNotes;
+      });
+    };
+
+    const initialCleanupTimer = window.setTimeout(removeExpiredNotes, 0);
+    let midnightCleanupTimer: number;
+
+    const scheduleMidnightCleanup = () => {
+      const now = new Date();
+      const nextMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+      );
+
+      midnightCleanupTimer = window.setTimeout(() => {
+        removeExpiredNotes();
+        scheduleMidnightCleanup();
+      }, nextMidnight.getTime() - now.getTime());
+    };
+
+    scheduleMidnightCleanup();
+
+    return () => {
+      window.clearTimeout(initialCleanupTimer);
+      window.clearTimeout(midnightCleanupTimer);
+    };
+  }, [notes, setNotes]);
 
   const filteredNotes = useMemo(() => {
     const today = new Date();
@@ -47,13 +103,15 @@ export default function Notes() {
 
       if (note.isPermanent) return true;
 
-      // 2) Rule: حذف یادداشت one-time که تاریخش گذشته
+      // 2) Rule: نوت منقضی تا زمان پاک‌سازی از رابط هم پنهان بماند
       let selectedDate = null;
+      if (isExpiredNote(note, today)) {
+        return false;
+      }
+
       if (note.recurrence === "none" && note.customDate) {
         selectedDate = parseLocalDate(note.customDate);
         selectedDate.setHours(0, 0, 0, 0);
-
-        if (selectedDate < today) return false;
       }
 
       // 3) Mode filter
