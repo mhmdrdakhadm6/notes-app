@@ -14,19 +14,16 @@ import Footer from "./Footer";
 import EditModal from "./EditModal";
 import NotePreview from "./NotePreview";
 import type { NotesType } from "../types/nots";
-
-const parseLocalDate = (dateValue: string) => {
-  return new Date(`${dateValue}T00:00:00`);
-};
+import { toLocalDateOnly } from "../utils/date";
 
 const isExpiredNote = (note: NotesType, today: Date) => {
   if (note.isPermanent || note.recurrence !== "none" || !note.customDate) {
     return false;
   }
 
-  const selectedDate = parseLocalDate(note.customDate);
+  const selectedDate = toLocalDateOnly(note.customDate);
 
-  if (Number.isNaN(selectedDate.getTime())) {
+  if (!selectedDate) {
     return false;
   }
 
@@ -89,7 +86,6 @@ export default function Notes() {
     const hasQuery = normalizedQuery && normalizedQuery.trim().length > 0;
 
     return notes.filter((note) => {
-      // 1) Search filter (فقط اگر کوئری داریم)
       if (hasQuery) {
         const title = (note.title || "").toLocaleLowerCase();
         const description = (note.description || "").toLocaleLowerCase();
@@ -103,18 +99,19 @@ export default function Notes() {
 
       if (note.isPermanent) return true;
 
-      // 2) Rule: نوت منقضی تا زمان پاک‌سازی از رابط هم پنهان بماند
-      let selectedDate = null;
+      let selectedDate = null as Date | null;
       if (isExpiredNote(note, today)) {
         return false;
       }
 
       if (note.recurrence === "none" && note.customDate) {
-        selectedDate = parseLocalDate(note.customDate);
+        selectedDate = toLocalDateOnly(note.customDate);
+        if (!selectedDate) {
+          return true;
+        }
         selectedDate.setHours(0, 0, 0, 0);
       }
 
-      // 3) Mode filter
       if (filterMode === "all") return true;
 
       if (note.recurrence === "weekly") {
@@ -126,8 +123,10 @@ export default function Notes() {
       }
 
       if (note.recurrence === "none" && note.customDate) {
-        // reuse selectedDate اگر قبلاً ساختیم
-        const d = selectedDate ?? parseLocalDate(note.customDate);
+        const d = selectedDate ?? toLocalDateOnly(note.customDate);
+        if (!d) {
+          return true;
+        }
 
         return (
           d.getFullYear() === today.getFullYear() &&
@@ -141,12 +140,16 @@ export default function Notes() {
   }, [notes, normalizedQuery, filterMode]);
 
   return (
-    <section className="mx-auto w-full max-w-6xl rounded-[36px] border border-white/10 bg-[#0b0f19] text-white shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+    <section
+      dir="rtl"
+      className="mx-auto w-full max-w-6xl overflow-hidden rounded-[36px] border border-white/10 bg-[#0b0f19] text-white shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+    >
       <div className="rounded-t-[36px] border-b border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-6 py-5 sm:px-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center">
-            <h2 className="text-2xl font-semibold tracking-[0.24em] text-white/92">
-              NOTES
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-cyan-300/90">پنل مدیریت یادداشت</p>
+            <h2 className="text-3xl font-semibold tracking-[0.18em] text-white/92">
+              لیست یادداشت‌ها
             </h2>
           </div>
 
@@ -155,14 +158,14 @@ export default function Notes() {
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="جستجو..."
+              placeholder="جستجوی یادداشت..."
               className="h-full w-full bg-transparent text-lg text-white outline-none placeholder:text-slate-400"
             />
 
             <button
               type="button"
               className="ml-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-cyan-400/10 hover:text-cyan-300"
-              aria-label="Search notes"
+              aria-label="جستجوی یادداشت‌ها"
             >
               <Search size={20} strokeWidth={2.2} />
             </button>
@@ -179,16 +182,13 @@ export default function Notes() {
               className="inline-flex h-12 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-5 text-lg font-medium text-cyan-200 transition hover:border-cyan-300/40 hover:bg-cyan-400/15"
             >
               <Plus size={18} strokeWidth={2.2} />
-              <span>نوت</span>
+              <span>افزودن نوت</span>
             </button>
 
-            <button
-              type="button"
-              className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-lg font-medium text-slate-200 transition hover:bg-white/[0.08]"
-            >
+            <div className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-lg font-medium text-slate-200">
               <SlidersHorizontal size={18} strokeWidth={2.2} />
-              <span>فیلتر</span>
-            </button>
+              <span>فیلترها</span>
+            </div>
           </div>
 
           <div className="flex rounded-xl border border-white/5 bg-zinc-950/60 p-1">
@@ -201,7 +201,7 @@ export default function Notes() {
               }`}
             >
               <CalendarDays size={16} />
-              <span>یادداشت‌های امروز</span>
+              <span>امروز</span>
             </button>
 
             <button
@@ -213,16 +213,30 @@ export default function Notes() {
               }`}
             >
               <Layers size={16} />
-              <span>همه یادداشت‌ها</span>
+              <span>همه</span>
             </button>
           </div>
         </div>
       </div>
 
+      <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 sm:px-8">
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-slate-300 sm:text-sm">
+          {notes.length} یادداشت در کل
+        </span>
+        <span className="text-xs text-slate-400 sm:text-sm">
+          {filteredNotes.length} مورد نمایش
+        </span>
+      </div>
+
       {notes.length === 0 ? (
         <Empty />
       ) : (
-        <NotesMap notes={filteredNotes} searchQuery={searchQuery} />
+        <NotesMap
+          notes={filteredNotes}
+          searchQuery={searchQuery}
+          totalNotes={notes.length}
+          filterMode={filterMode}
+        />
       )}
 
       <AddNoteModal />

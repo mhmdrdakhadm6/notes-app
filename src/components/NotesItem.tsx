@@ -1,5 +1,15 @@
-import { Pencil, X, Calendar, RefreshCw, Pin } from "lucide-react";
+﻿import {
+  Pencil,
+  X,
+  Calendar,
+  RefreshCw,
+  Pin,
+  ChevronLeft,
+  CircleDollarSign,
+} from "lucide-react";
+import type { MouseEvent } from "react";
 import { useNotes } from "../hooks/useNotes";
+import { toLocalDateOnly } from "../utils/date";
 
 interface NotesItemProps {
   title: string;
@@ -11,11 +21,8 @@ interface NotesItemProps {
   customDate?: string;
   dayOfWeek?: number;
   dayOfMonth?: number;
+  index?: number;
 }
-
-const parseLocalDate = (dateValue: string) => {
-  return new Date(`${dateValue}T00:00:00`);
-};
 
 function NotesItem({
   title,
@@ -27,6 +34,7 @@ function NotesItem({
   customDate,
   dayOfWeek,
   dayOfMonth,
+  index = 0,
 }: NotesItemProps) {
   const {
     handelDelete,
@@ -35,7 +43,7 @@ function NotesItem({
     handleAddToNotesPerview,
   } = useNotes();
 
-  const handleEditClick = (event: React.MouseEvent) => {
+  const handleEditClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
 
     setEditingNote({
@@ -53,19 +61,19 @@ function NotesItem({
     setIsEdit(true);
   };
 
-  const handleDeleteClick = (event: React.MouseEvent) => {
+  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     handelDelete(id);
   };
 
   const displayText =
-    description.length > 40
-      ? `${description.substring(0, 40)}...`
+    description.length > 80
+      ? `${description.substring(0, 80)}...`
       : description;
 
   const weekdaysLabels: Record<number, string> = {
     6: "شنبه",
-    0: "یکشنبه",
+    0: "یک‌شنبه",
     1: "دوشنبه",
     2: "سه‌شنبه",
     3: "چهارشنبه",
@@ -73,21 +81,29 @@ function NotesItem({
     5: "جمعه",
   };
 
-  const getDisplayDateInfo = () => {
-    if (isPermanent) {
-      return "همیشه";
-    }
+  const getDisplayDateInfo = (): string => {
+    if (isPermanent) return "همیشه نمایش داده می‌شود";
 
     if (recurrence === "weekly" && dayOfWeek !== undefined) {
-      return `هر هفته ${weekdaysLabels[dayOfWeek] || ""}`;
+      return `هفتگی · ${weekdaysLabels[dayOfWeek] || ""}`;
     }
 
     if (recurrence === "monthly" && dayOfMonth !== undefined) {
-      return `${dayOfMonth}ام هر ماه ${''}`;
+      return `ماهانه · روز ${dayOfMonth}`;
     }
 
     if (recurrence === "none" && customDate) {
-      return parseLocalDate(customDate).toLocaleDateString("fa-IR", {
+      const displayDate = toLocalDateOnly(customDate);
+
+      if (!displayDate) {
+        return new Date(date).toLocaleDateString("fa-IR", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      }
+
+      return displayDate.toLocaleDateString("fa-IR", {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -101,68 +117,117 @@ function NotesItem({
     });
   };
 
-  const getRecurrenceText = () => {
-    if (recurrence === "weekly") return "تکرار هفتگی";
-    if (recurrence === "monthly") return "تکرار ماهانه";
+  const getRecurrenceText = (): string => {
+    if (recurrence === "weekly") return "هفتگی";
+    if (recurrence === "monthly") return "ماهانه";
     return "";
+  };
+
+  const getAccent = (): string => {
+    if (isPermanent) {
+      return "from-amber-500/12 via-amber-500/4 to-transparent";
+    }
+
+    if (recurrence === "weekly") {
+      return "from-violet-500/12 via-violet-500/4 to-transparent";
+    }
+
+    if (recurrence === "monthly") {
+      return "from-rose-500/12 via-rose-500/4 to-transparent";
+    }
+
+    return "from-cyan-500/12 via-cyan-500/4 to-transparent";
+  };
+
+  const getAccentLine = (): string => {
+    if (isPermanent) return "from-amber-400";
+    if (recurrence === "weekly") return "from-violet-400";
+    if (recurrence === "monthly") return "from-rose-400";
+    return "from-cyan-400";
   };
 
   return (
     <li
       onClick={() => handleAddToNotesPerview(id)}
-      className="w-full cursor-pointer rounded-2xl border border-zinc-800 bg-gradient-to-br from-indigo-950/30 to-zinc-900 p-5 shadow-lg shadow-indigo-500/5 transition-all duration-300 hover:border-indigo-500/30 hover:from-indigo-900/35 hover:to-zinc-800 hover:shadow-indigo-500/15"
+      style={{ animationDelay: `${index * 50}ms` }}
+      className="group relative w-full cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-[#0a101d]/80 p-3.5 shadow-md backdrop-blur-md transition-all duration-300 [animation-fill-mode:forwards] animate-fadeInUp hover:-translate-y-0.5 hover:border-white/20 hover:shadow-lg"
     >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h3 className="truncate text-lg font-semibold text-zinc-100">
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 ${getAccent()} group-hover:opacity-100`}
+      />
+
+      <div
+        className={`pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${getAccentLine()} to-transparent`}
+      />
+
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-200">
+              <CircleDollarSign size={14} strokeWidth={2} />
+            </span>
+
+            <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-slate-300">
+              {isPermanent ? "ثابت" : "زمان‌دار"}
+            </span>
+          </div>
+
+          <h3 className="truncate text-base font-semibold tracking-tight text-white/95">
             {title}
           </h3>
 
-          <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-            <div className="flex items-center gap-1">
-              <Calendar size={14} />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+            <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-slate-300">
+              <Calendar size={11} className="text-slate-400" />
               <span>{getDisplayDateInfo()}</span>
-            </div>
+            </span>
 
             {recurrence !== "none" && (
-              <span className="flex items-center gap-1 rounded border border-indigo-500/20 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-300">
+              <span className="inline-flex items-center gap-1 rounded-md border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 font-medium text-violet-300">
                 <RefreshCw size={10} />
                 {getRecurrenceText()}
               </span>
             )}
 
             {isPermanent && (
-              <span className="flex items-center gap-1 rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-300">
                 <Pin size={10} />
-                دائمی
+                همیشه
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           <button
             onClick={handleEditClick}
             type="button"
-            aria-label="Edit note"
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-blue-500/10 hover:text-blue-400"
+            aria-label="ویرایش یادداشت"
+            className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 p-1.5 text-slate-300 transition hover:border-cyan-400/40 hover:bg-cyan-400/20 hover:text-cyan-200"
           >
-            <Pencil size={18} />
+            <Pencil size={14} strokeWidth={2} />
           </button>
 
           <button
             onClick={handleDeleteClick}
             type="button"
-            aria-label="Delete note"
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-red-500/10 hover:text-red-400"
+            aria-label="حذف یادداشت"
+            className="rounded-lg border border-red-400/20 bg-red-400/10 p-1.5 text-slate-300 transition hover:border-red-400/40 hover:bg-red-400/20 hover:text-red-200"
           >
-            <X size={20} />
+            <X size={14} strokeWidth={2} />
           </button>
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-indigo-500/15 bg-zinc-950/70 p-4 shadow-inner shadow-indigo-500/5">
-        <p className="leading-7 text-zinc-300">{displayText}</p>
+      {description && (
+        <div className="relative mt-2.5 rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
+          <p className="text-xs leading-5 text-slate-300">{displayText}</p>
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center justify-end gap-1 text-[10px] font-medium text-slate-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <span>نمایش جزئیات</span>
+        <ChevronLeft size={11} strokeWidth={2} />
       </div>
     </li>
   );

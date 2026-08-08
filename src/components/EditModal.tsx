@@ -1,4 +1,4 @@
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, Calendar, Settings2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
@@ -6,12 +6,13 @@ import persianFa from "react-date-object/locales/persian_fa";
 import { useNotes } from "../hooks/useNotes";
 import type { NotesType } from "../types/nots";
 
-// تابع استخراج کامپوننت واقعی از آبجکت‌های ماژول Vite/CJS
 const resolveComponent = (comp: any) => {
   let c = comp;
+
   while (c && typeof c === "object" && !c.$$typeof && c.default) {
     c = c.default;
   }
+
   return c;
 };
 
@@ -27,12 +28,18 @@ const getLocalDateValue = (date: Date) => {
 
 const parseLocalDate = (dateValue: string) => {
   const [year, month, day] = dateValue.split("-").map(Number);
+
   return new Date(year, month - 1, day);
 };
 
 function EditModal() {
-  const { EditingNote, setEditingNote, ToggleEdit, isEdit, setIsEdit } =
-    useNotes();
+  const {
+    EditingNote,
+    setEditingNote,
+    ToggleEdit,
+    isEdit,
+    setIsEdit,
+  } = useNotes();
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -50,7 +57,9 @@ function EditModal() {
     setNewDescription(EditingNote.description);
     setNewRecurrence(EditingNote.recurrence || "none");
     setNewIsPermanent(EditingNote.isPermanent ?? false);
-    setNewCustomDate(EditingNote.customDate || getLocalDateValue(new Date()));
+    setNewCustomDate(
+      EditingNote.customDate || getLocalDateValue(new Date())
+    );
     setNewDayOfWeek(EditingNote.dayOfWeek ?? new Date().getDay());
     setNewDayOfMonth(EditingNote.dayOfMonth ?? new Date().getDate());
   }, [EditingNote, isEdit]);
@@ -107,47 +116,53 @@ function EditModal() {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 px-4 py-6 backdrop-blur-md transition-all duration-300">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-note-title"
-        className="flex max-h-[calc(100vh-3rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0c111b] shadow-[0_30px_100px_rgba(0,0,0,0.7)]"
+        className="flex max-h-[calc(100vh-3rem)] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#070b13]/90 shadow-[0_25px_70px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl animate-fadeInUp"
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-white/[0.025] px-6 py-5">
-          <div>
-            <h2
-              id="edit-note-title"
-              className="text-xl font-semibold tracking-tight text-white"
-            >
-              ویرایش نوت
-            </h2>
+        <header className="relative flex shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent px-6 py-4.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400">
+              <Pencil size={19} strokeWidth={2.4} />
+            </div>
 
-            <p className="mt-1 text-sm text-slate-400">
-              اطلاعات یادداشت خود را به‌روزرسانی کنید.
-            </p>
+            <div>
+              <h2
+                id="edit-note-title"
+                className="text-lg font-bold tracking-tight text-white/95"
+              >
+                ویرایش یادداشت
+              </h2>
+
+              <p className="text-[11px] text-slate-400">
+                اطلاعات یادداشت خود را به‌روزرسانی کنید
+              </p>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Close edit modal"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-red-500/15 hover:text-red-300"
+            aria-label="بستن پنجره ویرایش"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-slate-400 transition-all duration-200 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
           >
-            <X size={21} strokeWidth={2.4} />
+            <X size={18} strokeWidth={2.2} />
           </button>
         </header>
 
         <form
           onSubmit={handleSubmit}
-          className="custom-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto p-6"
+          className="custom-scrollbar min-h-0 flex-1 space-y-4.5 overflow-y-auto p-6"
         >
-          <div>
+          <div className="space-y-1.5">
             <label
               htmlFor="edit-note-title-input"
-              className="mb-2 block text-sm font-medium text-slate-300"
+              className="text-xs font-semibold text-slate-300"
             >
-              عنوان
+              عنوان یادداشت
             </label>
 
             <input
@@ -156,17 +171,17 @@ function EditModal() {
               type="text"
               value={newTitle}
               onChange={(event) => setNewTitle(event.target.value)}
-              placeholder="عنوان..."
+              placeholder="یک عنوان جذاب انتخاب کنید..."
               autoFocus
               required
-              className="h-12 w-full rounded-xl border border-white/10 bg-[#080c14] px-4 text-base text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+              className="h-11 w-full rounded-xl border border-white/10 bg-[#04070d]/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
             />
           </div>
 
-          <div>
+          <div className="space-y-1.5">
             <label
               htmlFor="edit-note-description"
-              className="mb-2 block text-sm font-medium text-slate-300"
+              className="text-xs font-semibold text-slate-300"
             >
               توضیحات
             </label>
@@ -176,173 +191,188 @@ function EditModal() {
               name="description"
               value={newDescription}
               onChange={(event) => setNewDescription(event.target.value)}
-              placeholder="توضیحات..."
+              placeholder="جزئیات، برنامه‌ها یا نکات مهم..."
               required
-              className="min-h-40 w-full resize-none rounded-xl border border-white/10 bg-[#080c14] p-4 text-base text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+              className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-[#04070d]/60 p-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
             />
           </div>
 
-          <div>
-            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 transition hover:border-amber-400/40">
-              <div>
-                <span className="block text-sm font-semibold text-amber-200">
-                  نگهداری همیشگی یادداشت
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/10 bg-amber-500/[0.03] p-4 transition-all duration-200 hover:border-amber-500/25">
+            <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 to-transparent" />
+
+            <label className="flex cursor-pointer items-center justify-between gap-4">
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-amber-300">
+                  نگهداری همیشگی و ثابت
                 </span>
-                <span className="mt-1 block text-xs leading-5 text-slate-400">
-                  این یادداشت بدون محدودیت تاریخ، همیشه در لیست امروز نمایش داده
-                  می‌شود.
+
+                <span className="mt-0.5 block text-[10px] leading-5 text-slate-400">
+                  این یادداشت فاقد تاریخ انقضا بوده و همیشه در لیست روزانه نمایش داده می‌شود.
                 </span>
               </div>
+
               <input
                 type="checkbox"
                 checked={newIsPermanent}
                 onChange={(event) => setNewIsPermanent(event.target.checked)}
-                className="h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
+                className="h-4.5 w-4.5 shrink-0 cursor-pointer rounded border-white/20 bg-transparent text-amber-500 focus:ring-0 focus:ring-offset-0"
               />
             </label>
           </div>
 
           {!newIsPermanent && (
-            <>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">
-              نوع تکرار یادداشت
-            </label>
+            <div className="space-y-4 rounded-2xl border border-white/5 bg-white/[0.01] p-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                  <Settings2 size={13} className="text-slate-400" />
+                  <span>برنامه‌ریزی و زمان‌بندی نمایش</span>
+                </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { value: "none", label: "یکبار (روز خاص)" },
-                { value: "weekly", label: "تکرار هفتگی" },
-                { value: "monthly", label: "تکرار ماهانه" },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() =>
-                    setNewRecurrence(option.value as NotesType["recurrence"])
-                  }
-                  className={`flex h-12 items-center justify-center rounded-xl border text-sm font-medium transition active:scale-95 ${
-                    newRecurrence === option.value
-                      ? "border-cyan-400 bg-cyan-400/10 text-cyan-200"
-                      : "border-white/10 bg-[#080c14] text-slate-400 hover:border-white/20 hover:text-white"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {newRecurrence === "none" && (
-            <div className="transition-all duration-300">
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                تاریخ نمایش یادداشت
-              </label>
-
-              <DatePickerComponent
-                value={
-                  newCustomDate
-                    ? new DateObject({
-                        date: parseLocalDate(newCustomDate),
-                        calendar: persian,
-                        locale: persianFa,
-                      })
-                    : null
-                }
-                onChange={(value: DateObject | null) => {
-                  if (!value) return;
-                  setNewCustomDate(getLocalDateValue(value.toDate()));
-                }}
-                calendar={persian}
-                locale={persianFa}
-                format="YYYY/MM/DD"
-                calendarPosition="bottom-right"
-                inputClass="persian-date-input"
-                className="persian-dark-calendar"
-                containerClassName="w-full"
-              />
-            </div>
-          )}
-
-          {newRecurrence === "weekly" && (
-            <div className="transition-all duration-300">
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                چه روزی در هفته نمایش داده شود؟
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                {weekdays.map((day) => (
-                  <button
-                    key={day.value}
-                    type="button"
-                    onClick={() => setNewDayOfWeek(day.value)}
-                    className={`h-10 min-w-[70px] flex-1 rounded-lg border text-xs font-medium transition ${
-                      newDayOfWeek === day.value
-                        ? "border-cyan-400 bg-cyan-400/10 text-cyan-200"
-                        : "border-white/5 bg-[#080c14] text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {day.label}
-                  </button>
-                ))}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "none", label: "یکبار (خاص)" },
+                    { value: "weekly", label: "هفتگی" },
+                    { value: "monthly", label: "ماهانه" },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        setNewRecurrence(
+                          option.value as NotesType["recurrence"]
+                        )
+                      }
+                      className={`flex h-9 items-center justify-center rounded-xl border text-xs font-medium transition-all duration-200 active:scale-95 ${
+                        newRecurrence === option.value
+                          ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+                          : "border-white/5 bg-[#04070d]/40 text-slate-400 hover:border-white/10 hover:text-slate-200"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {newRecurrence === "none" && (
+                <div className="space-y-1.5 animate-fadeInUp">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <Calendar size={12} />
+                    <span>انتخاب روز خاص</span>
+                  </div>
+
+                  <DatePickerComponent
+                    value={
+                      newCustomDate
+                        ? new DateObject({
+                            date: parseLocalDate(newCustomDate),
+                            calendar: persian,
+                            locale: persianFa,
+                          })
+                        : null
+                    }
+                    onChange={(value: DateObject | null) => {
+                      if (!value) return;
+                      setNewCustomDate(getLocalDateValue(value.toDate()));
+                    }}
+                    calendar={persian}
+                    locale={persianFa}
+                    format="YYYY/MM/DD"
+                    calendarPosition="bottom-right"
+                    inputClass="persian-date-input"
+                    className="persian-dark-calendar"
+                    containerClassName="w-full"
+                  />
+                </div>
+              )}
+
+              {newRecurrence === "weekly" && (
+                <div className="space-y-1.5 animate-fadeInUp">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <RefreshCw size={11} />
+                    <span>روزهای نمایش در هفته</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {weekdays.map((day) => (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => setNewDayOfWeek(day.value)}
+                        className={`h-8 min-w-[56px] flex-1 rounded-lg border text-[10px] font-medium transition-all duration-150 ${
+                          newDayOfWeek === day.value
+                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                            : "border-white/5 bg-[#04070d]/30 text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {newRecurrence === "monthly" && (
+                <div className="space-y-1.5 animate-fadeInUp">
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <RefreshCw size={11} />
+                    <span>روز مشخص در ماه</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={2}
+                      value={newDayOfMonth === 0 ? "" : newDayOfMonth}
+                      onChange={(event) => {
+                        const value = event.target.value;
+
+                        if (value === "") {
+                          setNewDayOfMonth(0);
+                        } else if (
+                          /^\d{1,2}$/.test(value) &&
+                          Number(value) <= 31
+                        ) {
+                          setNewDayOfMonth(Number(value));
+                        }
+                      }}
+                      onBlur={() => {
+                        const value = Number.parseInt(
+                          String(newDayOfMonth),
+                          10
+                        );
+
+                        if (!value || value < 1) {
+                          setNewDayOfMonth(1);
+                          return;
+                        }
+
+                        if (value > 31) {
+                          setNewDayOfMonth(31);
+                        }
+                      }}
+                      className="h-10 w-20 rounded-xl border border-white/10 bg-[#04070d]/50 px-2 text-center text-sm font-semibold text-white outline-none focus:border-cyan-500/40"
+                    />
+
+                    <span className="text-[11px] text-slate-400">
+                      ام هر ماه شمسی
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {newRecurrence === "monthly" && (
-            <div className="transition-all duration-300">
-              <label className="mb-2 block text-sm font-medium text-slate-300">
-                چه روزی در ماه نمایش داده شود؟
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={2}
-                  value={newDayOfMonth === 0 ? "" : newDayOfMonth}
-                  onChange={(event) => {
-                    const value = event.target.value;
-
-                    if (value === "") {
-                      setNewDayOfMonth(0);
-                    } else if (/^\d{1,2}$/.test(value) && Number(value) <= 31) {
-                      setNewDayOfMonth(Number(value));
-                    }
-                  }}
-                  onBlur={() => {
-                    const value = Number.parseInt(String(newDayOfMonth), 10);
-
-                    if (!value || value < 1) {
-                      setNewDayOfMonth(1);
-                      return;
-                    }
-
-                    if (value > 31) {
-                      setNewDayOfMonth(31);
-                    }
-                  }}
-                  className="h-12 w-full rounded-xl border border-white/10 bg-[#080c14] px-4 text-center text-base text-white outline-none focus:border-cyan-400/60 sm:w-24"
-                />
-
-                <span className="text-center text-sm text-slate-400 sm:text-right">
-                  ام از هر ماه
-                </span>
-              </div>
-            </div>
-          )}
-            </>
-          )}
-
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-3">
             <button
               type="submit"
               disabled={!newTitle.trim() || !newDescription.trim()}
-              className="inline-flex h-12 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-8 font-semibold text-cyan-200 transition hover:border-cyan-400/50 hover:bg-cyan-400/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-cyan-400/20 disabled:hover:bg-cyan-400/10"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-6 text-xs font-semibold text-cyan-300 transition-all duration-200 hover:border-cyan-500/50 hover:bg-cyan-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-cyan-500/30 disabled:hover:bg-cyan-500/10"
             >
-              <span>ویرایش</span>
-              <Pencil size={18} />
+              <span>ذخیره تغییرات</span>
+              <Pencil size={16} strokeWidth={2.5} />
             </button>
           </div>
         </form>

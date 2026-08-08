@@ -2,16 +2,20 @@ import { useNotes } from "../hooks/useNotes";
 import NotePreviewCard from "./NotePreviewCard";
 
 function NotePreview() {
-  const { notePreview, isPreview } = useNotes();
+  const { notePreview, isPreview, setIsPreview } = useNotes();
 
   if (!isPreview || !notePreview) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-md"
       dir="rtl"
+      onClick={() => setIsPreview(false)}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#020617]/85 px-4 py-6 backdrop-blur-xl animate-fadeIn"
     >
-      <div className="w-full max-w-2xl text-right">
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-3xl animate-fadeInUp"
+      >
         <NotePreviewCard {...notePreview} />
       </div>
     </div>
