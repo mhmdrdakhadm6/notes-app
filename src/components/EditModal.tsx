@@ -38,6 +38,7 @@ function EditModal() {
   const [newDescription, setNewDescription] = useState("");
   const [newRecurrence, setNewRecurrence] =
     useState<NotesType["recurrence"]>("none");
+  const [newIsPermanent, setNewIsPermanent] = useState(false);
   const [newCustomDate, setNewCustomDate] = useState("");
   const [newDayOfWeek, setNewDayOfWeek] = useState(0);
   const [newDayOfMonth, setNewDayOfMonth] = useState(1);
@@ -48,6 +49,7 @@ function EditModal() {
     setNewTitle(EditingNote.title);
     setNewDescription(EditingNote.description);
     setNewRecurrence(EditingNote.recurrence || "none");
+    setNewIsPermanent(EditingNote.isPermanent ?? false);
     setNewCustomDate(EditingNote.customDate || getLocalDateValue(new Date()));
     setNewDayOfWeek(EditingNote.dayOfWeek ?? new Date().getDay());
     setNewDayOfMonth(EditingNote.dayOfMonth ?? new Date().getDate());
@@ -67,10 +69,20 @@ function EditModal() {
       ...EditingNote,
       title,
       description,
-      recurrence: newRecurrence,
-      customDate: newRecurrence === "none" ? newCustomDate : undefined,
-      dayOfWeek: newRecurrence === "weekly" ? newDayOfWeek : undefined,
-      dayOfMonth: newRecurrence === "monthly" ? newDayOfMonth : undefined,
+      recurrence: newIsPermanent ? "none" : newRecurrence,
+      isPermanent: newIsPermanent,
+      customDate:
+        !newIsPermanent && newRecurrence === "none"
+          ? newCustomDate
+          : undefined,
+      dayOfWeek:
+        !newIsPermanent && newRecurrence === "weekly"
+          ? newDayOfWeek
+          : undefined,
+      dayOfMonth:
+        !newIsPermanent && newRecurrence === "monthly"
+          ? newDayOfMonth
+          : undefined,
     });
 
     setEditingNote(null);
@@ -170,6 +182,28 @@ function EditModal() {
             />
           </div>
 
+          <div>
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 transition hover:border-amber-400/40">
+              <div>
+                <span className="block text-sm font-semibold text-amber-200">
+                  نگهداری همیشگی یادداشت
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">
+                  این یادداشت بدون محدودیت تاریخ، همیشه در لیست امروز نمایش داده
+                  می‌شود.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={newIsPermanent}
+                onChange={(event) => setNewIsPermanent(event.target.checked)}
+                className="h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
+              />
+            </label>
+          </div>
+
+          {!newIsPermanent && (
+            <>
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-300">
               نوع تکرار یادداشت
@@ -297,6 +331,8 @@ function EditModal() {
                 </span>
               </div>
             </div>
+          )}
+            </>
           )}
 
           <div className="flex justify-end pt-2">

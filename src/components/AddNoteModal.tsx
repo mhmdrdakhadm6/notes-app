@@ -40,6 +40,7 @@ export default function AddNoteModal() {
   } = useNotes();
 
   const [recurrence, setRecurrence] = useState<NotesType["recurrence"]>("none");
+  const [isPermanent, setIsPermanent] = useState(false);
   const [customDate, setCustomDate] = useState(getLocalDateValue(new Date()));
   const [dayOfWeek, setDayOfWeek] = useState(new Date().getDay());
   const [dayOfMonth, setDayOfMonth] = useState(new Date().getDate());
@@ -50,6 +51,7 @@ export default function AddNoteModal() {
     setTitle("");
     setDescription("");
     setRecurrence("none");
+    setIsPermanent(false);
     setCustomDate(getLocalDateValue(new Date()));
     setDayOfWeek(new Date().getDay());
     setDayOfMonth(new Date().getDate());
@@ -65,10 +67,14 @@ export default function AddNoteModal() {
       description: description.trim(),
       id: crypto.randomUUID(),
       date: new Date(),
-      recurrence,
-      customDate: recurrence === "none" ? customDate : undefined,
-      dayOfWeek: recurrence === "weekly" ? dayOfWeek : undefined,
-      dayOfMonth: recurrence === "monthly" ? dayOfMonth : undefined,
+      recurrence: isPermanent ? "none" : recurrence,
+      isPermanent,
+      customDate:
+        !isPermanent && recurrence === "none" ? customDate : undefined,
+      dayOfWeek:
+        !isPermanent && recurrence === "weekly" ? dayOfWeek : undefined,
+      dayOfMonth:
+        !isPermanent && recurrence === "monthly" ? dayOfMonth : undefined,
     };
 
     setNotes((prevNotes) => {
@@ -163,6 +169,28 @@ export default function AddNoteModal() {
             />
           </div>
 
+          <div>
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 transition hover:border-amber-400/40">
+              <div>
+                <span className="block text-sm font-semibold text-amber-200">
+                  نگهداری همیشگی یادداشت
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">
+                  این یادداشت بدون محدودیت تاریخ، همیشه در لیست امروز نمایش داده
+                  می‌شود.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={isPermanent}
+                onChange={(event) => setIsPermanent(event.target.checked)}
+                className="h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
+              />
+            </label>
+          </div>
+
+          {!isPermanent && (
+            <>
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-300">
               نوع تکرار یادداشت
@@ -288,6 +316,8 @@ export default function AddNoteModal() {
                 </span>
               </div>
             </div>
+          )}
+            </>
           )}
 
           <div className="flex justify-end pt-2">

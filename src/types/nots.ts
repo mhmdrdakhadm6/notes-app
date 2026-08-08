@@ -4,6 +4,7 @@ export interface NotesType {
   id: string;
   date: Date | string;
   recurrence: "none" | "weekly" | "monthly";
+  isPermanent?: boolean;
   customDate?: string;
   dayOfWeek?: number;
   dayOfMonth?: number;

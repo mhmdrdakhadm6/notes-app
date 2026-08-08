@@ -1,4 +1,4 @@
-import { Pencil, X, Calendar, RefreshCw } from "lucide-react";
+import { Pencil, X, Calendar, RefreshCw, Pin } from "lucide-react";
 import { useNotes } from "../hooks/useNotes";
 
 interface NotesItemProps {
@@ -7,6 +7,7 @@ interface NotesItemProps {
   id: string;
   date: Date | string;
   recurrence?: "none" | "weekly" | "monthly";
+  isPermanent?: boolean;
   customDate?: string;
   dayOfWeek?: number;
   dayOfMonth?: number;
@@ -22,6 +23,7 @@ function NotesItem({
   id,
   date,
   recurrence = "none",
+  isPermanent = false,
   customDate,
   dayOfWeek,
   dayOfMonth,
@@ -42,6 +44,7 @@ function NotesItem({
       description,
       date: new Date(date),
       recurrence,
+      isPermanent,
       customDate,
       dayOfWeek,
       dayOfMonth,
@@ -71,12 +74,16 @@ function NotesItem({
   };
 
   const getDisplayDateInfo = () => {
+    if (isPermanent) {
+      return "همیشه";
+    }
+
     if (recurrence === "weekly" && dayOfWeek !== undefined) {
       return `هر هفته ${weekdaysLabels[dayOfWeek] || ""}`;
     }
 
     if (recurrence === "monthly" && dayOfMonth !== undefined) {
-      return `هر ماه روز ${dayOfMonth}`;
+      return `${dayOfMonth}ام هر ماه ${''}`;
     }
 
     if (recurrence === "none" && customDate) {
@@ -121,6 +128,13 @@ function NotesItem({
               <span className="flex items-center gap-1 rounded border border-indigo-500/20 bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-300">
                 <RefreshCw size={10} />
                 {getRecurrenceText()}
+              </span>
+            )}
+
+            {isPermanent && (
+              <span className="flex items-center gap-1 rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+                <Pin size={10} />
+                دائمی
               </span>
             )}
           </div>

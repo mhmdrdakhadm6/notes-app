@@ -12,6 +12,7 @@ import { useNotes } from "../hooks/useNotes";
 import NotesMap from "./NotesMap";
 import Footer from "./Footer";
 import EditModal from "./EditModal";
+import { useMemo } from "react";
 import NotePreview from "./NotePreview";
 
 const parseLocalDate = (dateValue: string) => {
@@ -25,48 +26,61 @@ export default function Notes() {
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 
-  const filteredNotes = notes.filter((note) => {
-    const title = note.title.toLocaleLowerCase();
-    const description = note.description.toLocaleLowerCase();
-
-    const matchesSearch =
-      title.includes(normalizedQuery) ||
-      description.includes(normalizedQuery);
-
-    if (!matchesSearch) return false;
-
+  const filteredNotes = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (note.recurrence === "none" && note.customDate) {
-      const selectedDate = parseLocalDate(note.customDate);
-      selectedDate.setHours(0, 0, 0, 0);
+    const hasQuery = normalizedQuery && normalizedQuery.trim().length > 0;
 
-      if (selectedDate < today) return false;
-    }
+    return notes.filter((note) => {
+      // 1) Search filter (فقط اگر کوئری داریم)
+      if (hasQuery) {
+        const title = (note.title || "").toLocaleLowerCase();
+        const description = (note.description || "").toLocaleLowerCase();
 
-    if (filterMode === "all") return true;
+        const matchesSearch =
+          title.includes(normalizedQuery) ||
+          description.includes(normalizedQuery);
 
-    if (note.recurrence === "weekly") {
-      return note.dayOfWeek === today.getDay();
-    }
+        if (!matchesSearch) return false;
+      }
 
-    if (note.recurrence === "monthly") {
-      return note.dayOfMonth === today.getDate();
-    }
+      if (note.isPermanent) return true;
 
-    if (note.recurrence === "none" && note.customDate) {
-      const selectedDate = parseLocalDate(note.customDate);
+      // 2) Rule: حذف یادداشت one-time که تاریخش گذشته
+      let selectedDate = null;
+      if (note.recurrence === "none" && note.customDate) {
+        selectedDate = parseLocalDate(note.customDate);
+        selectedDate.setHours(0, 0, 0, 0);
 
-      return (
-        selectedDate.getFullYear() === today.getFullYear() &&
-        selectedDate.getMonth() === today.getMonth() &&
-        selectedDate.getDate() === today.getDate()
-      );
-    }
+        if (selectedDate < today) return false;
+      }
 
-    return true;
-  });
+      // 3) Mode filter
+      if (filterMode === "all") return true;
+
+      if (note.recurrence === "weekly") {
+        return note.dayOfWeek === today.getDay();
+      }
+
+      if (note.recurrence === "monthly") {
+        return note.dayOfMonth === today.getDate();
+      }
+
+      if (note.recurrence === "none" && note.customDate) {
+        // reuse selectedDate اگر قبلاً ساختیم
+        const d = selectedDate ?? parseLocalDate(note.customDate);
+
+        return (
+          d.getFullYear() === today.getFullYear() &&
+          d.getMonth() === today.getMonth() &&
+          d.getDate() === today.getDate()
+        );
+      }
+
+      return true;
+    });
+  }, [notes, normalizedQuery, filterMode]);
 
   return (
     <section className="mx-auto w-full max-w-6xl rounded-[36px] border border-white/10 bg-[#0b0f19] text-white shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
@@ -160,4 +174,3 @@ export default function Notes() {
     </section>
   );
 }
-
