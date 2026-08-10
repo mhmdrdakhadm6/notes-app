@@ -116,23 +116,23 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 px-4 py-6 backdrop-blur-md transition-all duration-300">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/90 px-4 py-6 backdrop-blur-xl transition-all duration-300">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-note-title"
-        className="flex max-h-[calc(100vh-3rem)] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#070b13]/90 shadow-[0_25px_70px_-10px_rgba(0,0,0,0.8)] backdrop-blur-xl animate-fadeInUp"
+        className="flex max-h-[calc(100vh-3rem)] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#093cc8]/20 bg-[#0a0a0a]  animate-fadeInUp"
       >
-        <header className="relative flex shrink-0 items-center justify-between border-b border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent px-6 py-4.5">
+        <header className="relative flex shrink-0 items-center justify-between border-b border-[#093cc8]/10 bg-gradient-to-b from-[#093cc8]/5 to-transparent px-6 py-4.5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#093cc8]/30 bg-[#093cc8]/10 text-[#093cc8]">
               <Pencil size={19} strokeWidth={2.4} />
             </div>
 
             <div>
               <h2
                 id="edit-note-title"
-                className="text-lg font-bold tracking-tight text-white/95"
+                className="text-lg font-bold tracking-tight text-white"
               >
                 ویرایش یادداشت
               </h2>
@@ -147,7 +147,7 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
             type="button"
             onClick={handleClose}
             aria-label="بستن پنجره ویرایش"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-slate-400 transition-all duration-200 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-slate-400 transition-all duration-200 hover:border-[#093cc8]/30 hover:bg-[#093cc8]/10 hover:text-[#093cc8]"
           >
             <X size={18} strokeWidth={2.2} />
           </button>
@@ -174,7 +174,7 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
               placeholder="یک عنوان جذاب انتخاب کنید..."
               autoFocus
               required
-              className="h-11 w-full rounded-xl border border-white/10 bg-[#04070d]/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
+              className="h-11 w-full rounded-xl border border-[#093cc8]/10 bg-black/60 px-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-[#093cc8]/40 focus:bg-black/90 focus:ring-2 focus:ring-[#093cc8]/10"
             />
           </div>
 
@@ -193,18 +193,18 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
               onChange={(event) => setNewDescription(event.target.value)}
               placeholder="جزئیات، برنامه‌ها یا نکات مهم..."
               required
-              className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-[#04070d]/60 p-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
+              className="min-h-32 w-full resize-none rounded-xl border border-[#093cc8]/10 bg-black/60 p-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-[#093cc8]/40 focus:bg-black/90 focus:ring-2 focus:ring-[#093cc8]/10"
             />
           </div>
 
           <NoteImagePicker image={newImage} onChange={setNewImage} />
 
-          <div className="relative overflow-hidden rounded-2xl border border-amber-500/10 bg-amber-500/[0.03] p-4 transition-all duration-200 hover:border-amber-500/25">
-            <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 to-transparent" />
+          <div className="relative overflow-hidden rounded-2xl border border-[#093cc8]/10 bg-[#093cc8]/[0.02] p-4 transition-all duration-200 hover:border-[#093cc8]/25">
+            <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-[#093cc8] to-transparent" />
 
             <label className="flex cursor-pointer items-center justify-between gap-4">
               <div className="min-w-0">
-                <span className="block text-xs font-bold text-amber-300">
+                <span className="block text-xs font-bold text-[#093cc8]">
                   نگهداری همیشگی و ثابت
                 </span>
 
@@ -217,13 +217,13 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
                 type="checkbox"
                 checked={newIsPermanent}
                 onChange={(event) => setNewIsPermanent(event.target.checked)}
-                className="h-4.5 w-4.5 shrink-0 cursor-pointer rounded border-white/20 bg-transparent text-amber-500 focus:ring-0 focus:ring-offset-0"
+                className="h-4.5 w-4.5 shrink-0 cursor-pointer rounded border-white/20 bg-transparent text-[#093cc8] focus:ring-0 focus:ring-offset-0"
               />
             </label>
           </div>
 
           {!newIsPermanent && (
-            <div className="space-y-4 rounded-2xl border border-white/5 bg-white/[0.01] p-4">
+            <div className="space-y-4 rounded-2xl border border-white/5 bg-black/30 p-4">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
                   <Settings2 size={13} className="text-slate-400" />
@@ -246,8 +246,8 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
                       }
                       className={`flex h-9 items-center justify-center rounded-xl border text-xs font-medium transition-all duration-200 active:scale-95 ${
                         newRecurrence === option.value
-                          ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
-                          : "border-white/5 bg-[#04070d]/40 text-slate-400 hover:border-white/10 hover:text-slate-200"
+                          ? "border-[#093cc8]/30 bg-[#093cc8]/10 text-[#093cc8]"
+                          : "border-white/5 bg-black/40 text-slate-400 hover:border-white/10 hover:text-slate-200"
                       }`}
                     >
                       {option.label}
@@ -303,8 +303,8 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
                         onClick={() => setNewDayOfWeek(day.value)}
                         className={`h-8 min-w-[56px] flex-1 rounded-lg border text-[10px] font-medium transition-all duration-150 ${
                           newDayOfWeek === day.value
-                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-                            : "border-white/5 bg-[#04070d]/30 text-slate-400 hover:text-slate-200"
+                            ? "border-[#093cc8]/40 bg-[#093cc8]/10 text-[#093cc8]"
+                            : "border-white/5 bg-black/30 text-slate-400 hover:text-slate-200"
                         }`}
                       >
                         {day.label}
@@ -355,7 +355,7 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
                           setNewDayOfMonth(31);
                         }
                       }}
-                      className="h-10 w-20 rounded-xl border border-white/10 bg-[#04070d]/50 px-2 text-center text-sm font-semibold text-white outline-none focus:border-cyan-500/40"
+                      className="h-10 w-20 rounded-xl border border-[#093cc8]/10 bg-black/50 px-2 text-center text-sm font-semibold text-white outline-none focus:border-[#093cc8]/40"
                     />
 
                     <span className="text-[11px] text-slate-400">
@@ -371,7 +371,7 @@ function EditModalContent({ editingNote }: EditModalContentProps) {
             <button
               type="submit"
               disabled={!newTitle.trim() || !newDescription.trim()}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-6 text-xs font-semibold text-cyan-300 transition-all duration-200 hover:border-cyan-500/50 hover:bg-cyan-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-cyan-500/30 disabled:hover:bg-cyan-500/10"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#093cc8]/30 bg-[#093cc8]/10 px-6 text-xs font-semibold text-[#093cc8] transition-all duration-200 hover:border-[#093cc8]/50 hover:bg-[#093cc8]/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#093cc8]/30 disabled:hover:bg-[#093cc8]/10"
             >
               <span>ذخیره تغییرات</span>
               <Pencil size={16} strokeWidth={2.5} />

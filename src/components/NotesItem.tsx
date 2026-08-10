@@ -3,7 +3,6 @@
   X,
   Calendar,
   RefreshCw,
-  Pin,
   ChevronLeft,
   CircleDollarSign,
 } from "lucide-react";
@@ -128,117 +127,79 @@ function NotesItem({
     return "";
   };
 
-  const getAccent = (): string => {
-    if (isPermanent) {
-      return "from-amber-500/12 via-amber-500/4 to-transparent";
-    }
-
-    if (recurrence === "weekly") {
-      return "from-violet-500/12 via-violet-500/4 to-transparent";
-    }
-
-    if (recurrence === "monthly") {
-      return "from-rose-500/12 via-rose-500/4 to-transparent";
-    }
-
-    return "from-cyan-500/12 via-cyan-500/4 to-transparent";
-  };
-
-  const getAccentLine = (): string => {
-    if (isPermanent) return "from-amber-400";
-    if (recurrence === "weekly") return "from-violet-400";
-    if (recurrence === "monthly") return "from-rose-400";
-    return "from-cyan-400";
-  };
-
   return (
     <li
       onClick={() => handleAddToNotesPerview(id)}
       style={{ animationDelay: `${index * 50}ms` }}
-      className="group relative w-full cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-[#0a101d]/80 p-3.5 shadow-md backdrop-blur-md transition-all duration-300 [animation-fill-mode:forwards] animate-fadeInUp hover:-translate-y-0.5 hover:border-white/20 hover:shadow-lg"
+      className="group relative w-full cursor-pointer overflow-hidden rounded-2xl border border-[#093cc8]/10 bg-[#0a0a0a] p-4 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all duration-300 animate-fadeInUp hover:-translate-y-1 hover:border-[#093cc8]/40 hover:shadow-[0_0_40px_rgba(9,60,200,0.15)]"
     >
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 ${getAccent()} group-hover:opacity-100`}
-      />
-
-      <div
-        className={`pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b ${getAccentLine()} to-transparent`}
-      />
+      <div className="absolute inset-y-0 right-0 w-1.5 bg-[#093cc8] shadow-[0_0_20px_rgba(9,60,200,0.3)]" />
 
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-slate-200">
-              <CircleDollarSign size={14} strokeWidth={2} />
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#093cc8]/10 text-[#093cc8]">
+              <CircleDollarSign size={16} strokeWidth={2.5} />
             </span>
 
-            <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-slate-300">
+            <span className="rounded-lg border border-[#093cc8]/20 bg-[#093cc8]/5 px-2.5 py-1 text-[10px] font-bold text-[#093cc8]">
               {isPermanent ? "ثابت" : "زمان‌دار"}
             </span>
           </div>
 
-          <h3 className="truncate text-base font-semibold tracking-tight text-white/95">
+          <h3 className="truncate text-[16px] font-black tracking-tight text-white">
             {title}
           </h3>
 
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-            <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-slate-300">
-              <Calendar size={11} className="text-slate-400" />
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-400">
+            <span className="flex items-center gap-1.5 rounded-lg border border-white/[0.05] bg-black/30 px-2.5 py-1">
+              <Calendar size={11} className="text-[#093cc8]" />
               <span>{getDisplayDateInfo()}</span>
             </span>
 
             {recurrence !== "none" && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-violet-400/20 bg-violet-500/10 px-2 py-0.5 font-medium text-violet-300">
-                <RefreshCw size={10} />
+              <span className="flex items-center gap-1.5 rounded-lg border border-[#093cc8]/20 bg-[#093cc8]/5 px-2.5 py-1 text-[#093cc8]">
+                <RefreshCw size={11} />
                 {getRecurrenceText()}
-              </span>
-            )}
-
-            {isPermanent && (
-              <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/20 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-300">
-                <Pin size={10} />
-                همیشه
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-1.5 opacity-40 transition-opacity group-hover:opacity-100">
           <button
             onClick={handleEditClick}
             type="button"
-            aria-label="ویرایش یادداشت"
-            className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 p-1.5 text-slate-300 transition hover:border-cyan-400/40 hover:bg-cyan-400/20 hover:text-cyan-200"
+            className="rounded-xl border border-white/[0.08] bg-black/40 p-2 text-white transition hover:bg-[#093cc8] hover:text-white hover:shadow-lg hover:shadow-[#093cc8]/20"
           >
-            <Pencil size={14} strokeWidth={2} />
+            <Pencil size={15} />
           </button>
 
           <button
             onClick={handleDeleteClick}
             type="button"
-            aria-label="حذف یادداشت"
-            className="rounded-lg border border-red-400/20 bg-red-400/10 p-1.5 text-slate-300 transition hover:border-red-400/40 hover:bg-red-400/20 hover:text-red-200"
+            className="rounded-xl border border-white/[0.08] bg-black/40 p-2 text-white transition hover:bg-red-600 hover:text-white hover:shadow-lg hover:shadow-red-600/20"
           >
-            <X size={14} strokeWidth={2} />
+            <X size={15} />
           </button>
         </div>
       </div>
 
       {description && (
-        <div className="relative mt-2.5 rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
-          <p className="text-xs leading-5 text-slate-300">{displayText}</p>
+        <div className="relative mt-4 rounded-xl border border-white/[0.05] bg-black/20 p-3.5">
+          <p className="text-[12px] leading-6 text-slate-300">{displayText}</p>
         </div>
       )}
 
       {image && (
-        <div className="relative mt-2.5">
+        <div className="relative mt-4 overflow-hidden rounded-xl border border-[#093cc8]/20">
           <NoteImageView image={image} compact />
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-end gap-1 text-[10px] font-medium text-slate-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-        <span>نمایش جزئیات</span>
-        <ChevronLeft size={11} strokeWidth={2} />
+      <div className="mt-4 flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#093cc8] opacity-0 transition-all group-hover:opacity-100">
+        <span>جزئیات</span>
+        <ChevronLeft size={12} strokeWidth={3} />
       </div>
     </li>
   );

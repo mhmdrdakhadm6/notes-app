@@ -144,91 +144,69 @@ export default function Notes() {
   return (
     <section
       dir="rtl"
-      className="mx-auto w-full max-w-6xl overflow-hidden rounded-[36px] border border-white/10 bg-[#0b0f19] text-white shadow-[0_30px_80px_rgba(0,0,0,0.45)]"
+      className="mx-auto w-full max-w-6xl overflow-hidden rounded-[32px] border border-[#093cc8]/20 bg-[#0a0a0a] text-white "
     >
-      <div className="rounded-t-[36px] border-b border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] px-6 py-5 sm:px-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-cyan-300/90">پنل مدیریت یادداشت</p>
-            <h2 className="text-3xl font-semibold tracking-[0.18em] text-white/92">
-              لیست یادداشت‌ها
+      <div className="border-b border-[#093cc8]/20 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a] to-[#050b1d] px-8 py-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-[#093cc8]">پنل اختصاصی</p>
+            <h2 className="text-3xl font-black tracking-tight text-white">
+              مدیریت نوت‌ها
             </h2>
           </div>
 
-          <label className="group flex h-14 w-full max-w-xl items-center rounded-2xl border border-white/12 bg-[#111827] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors focus-within:border-cyan-400/50 focus-within:bg-[#131c2c] lg:min-w-[540px]">
+          <label className="flex h-14 w-full max-w-xl items-center rounded-2xl border border-[#093cc8]/30 bg-black/60 px-4 shadow-lg focus-within:border-[#093cc8] lg:min-w-[500px]">
             <input
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="جستجوی یادداشت..."
-              className="h-full w-full bg-transparent text-lg text-white outline-none placeholder:text-slate-400"
+              placeholder="جستجو در نوت‌ها..."
+              className="h-full w-full bg-transparent px-2 text-[15px] text-white outline-none placeholder:text-slate-600"
             />
-
-            <button
-              type="button"
-              className="ml-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-cyan-400/10 hover:text-cyan-300"
-              aria-label="جستجوی یادداشت‌ها"
-            >
-              <Search size={20} strokeWidth={2.2} />
+            <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#093cc8] text-white transition hover:bg-[#0730a0]">
+              <Search size={18} />
             </button>
           </label>
         </div>
       </div>
 
-      <div className="border-b border-white/10 px-6 py-4 sm:px-8">
+      <div className="border-b border-[#093cc8]/20 bg-black/40 px-8 py-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex gap-3">
             <button
               onClick={() => setIsOpen(true)}
               type="button"
-              className="inline-flex h-12 items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-5 text-lg font-medium text-cyan-200 transition hover:border-cyan-300/40 hover:bg-cyan-400/15"
+              className="flex h-12 items-center gap-2 rounded-2xl bg-[#093cc8] px-6 text-[15px] font-bold text-white transition hover:bg-[#0730a0] hover:shadow-lg hover:shadow-[#093cc8]/20"
             >
-              <Plus size={18} strokeWidth={2.2} />
+              <Plus size={18} />
               <span>افزودن نوت</span>
             </button>
 
-            <div className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 text-lg font-medium text-slate-200">
-              <SlidersHorizontal size={18} strokeWidth={2.2} />
-              <span>فیلترها</span>
+            <div className="flex h-12 items-center gap-2 rounded-2xl border border-[#093cc8]/20 bg-black/60 px-5 text-[15px] font-semibold text-slate-300">
+              <SlidersHorizontal size={18} />
+              <span>فیلتر</span>
             </div>
           </div>
 
-          <div className="flex rounded-xl border border-white/5 bg-zinc-950/60 p-1">
-            <button
-              onClick={() => setFilterMode("today")}
-              className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-medium transition ${
-                filterMode === "today"
-                  ? "border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <CalendarDays size={16} />
-              <span>امروز</span>
-            </button>
-
-            <button
-              onClick={() => setFilterMode("all")}
-              className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-medium transition ${
-                filterMode === "all"
-                  ? "border border-cyan-400/20 bg-cyan-400/10 text-cyan-300"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Layers size={16} />
-              <span>همه</span>
-            </button>
-
-            <button
-              onClick={() => setFilterMode("ai")}
-              className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-medium transition ${
-                filterMode === "ai"
-                  ? "border border-blue-400/30 bg-blue-500/15 text-blue-300"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Sparkles size={16} />
-              <span>AI</span>
-            </button>
+          <div className="flex gap-1 rounded-2xl border border-[#093cc8]/20 bg-black/60 p-1.5">
+            {[
+              { id: "today", label: "امروز", icon: CalendarDays },
+              { id: "all", label: "همه", icon: Layers },
+              { id: "ai", label: "AI", icon: Sparkles },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setFilterMode(item.id as any)}
+                className={`flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-semibold transition ${
+                  filterMode === item.id
+                    ? "bg-[#093cc8] text-white shadow-lg shadow-[#093cc8]/20"
+                    : "text-slate-500 hover:text-white"
+                }`}
+              >
+                <item.icon size={16} />
+                <span>{item.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -237,12 +215,12 @@ export default function Notes() {
         <ChatApp />
       ) : (
         <>
-          <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 sm:px-8">
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-slate-300 sm:text-sm">
-              {notes.length} یادداشت در کل
+          <div className="flex items-center justify-between bg-black/20 px-8 py-4">
+            <span className="rounded-full bg-[#093cc8]/10 px-4 py-1 text-[11px] font-bold text-[#093cc8]">
+              {notes.length} مجموع
             </span>
-            <span className="text-xs text-slate-400 sm:text-sm">
-              {filteredNotes.length} مورد نمایش
+            <span className="text-[12px] font-medium text-slate-500">
+              {filteredNotes.length} مورد فعال
             </span>
           </div>
 

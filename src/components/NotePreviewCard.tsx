@@ -49,15 +49,15 @@ function NotePreviewCard({
     <>
       <div
         dir="rtl"
-        className="relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0b1220]/90 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[34px]"
+        className="relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-[#093cc8]/20 bg-[#0a0a0a]  backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[34px]"
       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,.12),transparent_24%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(9,60,200,.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(9,60,200,.08),transparent_24%)]" />
 
-        <div className="relative shrink-0 border-b border-white/[0.06] px-4 py-4 sm:px-8 sm:py-5">
+        <div className="relative shrink-0 border-b border-[#093cc8]/10 px-4 py-4 sm:px-8 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium text-cyan-300">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#093cc8]/20 bg-[#093cc8]/10 px-3 py-1 text-[11px] font-medium text-[#093cc8]">
                   <Sparkles size={12} />
                   پیش‌نمایش یادداشت
                 </span>
@@ -69,7 +69,7 @@ function NotePreviewCard({
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300 shadow-lg shadow-cyan-500/10">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#093cc8]/20 bg-[#093cc8]/10 text-[#093cc8] shadow-lg shadow-[#093cc8]/10">
                   <FileText size={22} strokeWidth={2.2} />
                 </div>
 
@@ -91,8 +91,8 @@ function NotePreviewCard({
                 type="button"
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition-all duration-300 active:scale-90 ${
                   copied
-                    ? "border-green-400/30 bg-green-500/15 text-green-300"
-                    : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200"
+                    ? "border-[#093cc8]/30 bg-[#093cc8]/15 text-[#093cc8]"
+                    : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-[#093cc8]/30 hover:bg-[#093cc8]/10 hover:text-[#093cc8]"
                 }`}
                 title="کپی متن"
               >
@@ -116,7 +116,7 @@ function NotePreviewCard({
         </div>
 
         <div className="relative flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-8 sm:py-7">
-          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/[0.06] bg-black/[0.14] p-4 shadow-inner shadow-black/20 sm:rounded-3xl sm:p-7">
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto rounded-2xl border border-[#093cc8]/10 bg-black/60 p-4 shadow-inner shadow-black/20 sm:rounded-3xl sm:p-7">
             {image && (
               <div className="mb-5">
                 <NoteImageView image={image} />
@@ -127,9 +127,9 @@ function NotePreviewCard({
             </p>
           </div>
 
-          <div className="mt-4 flex shrink-0 flex-col items-start justify-between gap-2 border-t border-white/[0.05] pt-4 sm:mt-5 sm:flex-row sm:items-center sm:gap-3 sm:pt-5">
+          <div className="mt-4 flex shrink-0 flex-col items-start justify-between gap-2 border-t border-[#093cc8]/10 pt-4 sm:mt-5 sm:flex-row sm:items-center sm:gap-3 sm:pt-5">
             <div className="flex items-center gap-2 text-xs text-slate-500">
-              <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,.7)]" />
+              <div className="h-2 w-2 rounded-full bg-[#093cc8] shadow-[0_0_12px_rgba(9,60,200,.5)]" />
 
               <span>یادداشت با موفقیت بارگذاری شد</span>
             </div>
@@ -148,9 +148,9 @@ function NotePreviewCard({
         toastOptions={{
           duration: 2400,
           style: {
-            background: "rgba(15,23,42,.92)",
+            background: "rgba(10,10,10,.95)",
             color: "#f8fafc",
-            border: "1px solid rgba(255,255,255,.08)",
+            border: "1px solid rgba(9,60,200,.2)",
             borderRadius: "18px",
             padding: "14px 18px",
             backdropFilter: "blur(14px)",
@@ -160,17 +160,17 @@ function NotePreviewCard({
           },
           success: {
             iconTheme: {
-              primary: "#22c55e",
-              secondary: "#0f172a",
+              primary: "#093cc8",
+              secondary: "#0a0a0a",
             },
             style: {
-              border: "1px solid rgba(34,197,94,.18)",
+              border: "1px solid rgba(9,60,200,.3)",
             },
           },
           error: {
             iconTheme: {
               primary: "#ef4444",
-              secondary: "#0f172a",
+              secondary: "#0a0a0a",
             },
             style: {
               border: "1px solid rgba(239,68,68,.18)",

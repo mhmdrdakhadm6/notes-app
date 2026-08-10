@@ -711,7 +711,7 @@ export default function ChatApp() {
               type="submit"
               disabled={(!input.trim() && !attachment) || isLoading}
               aria-label="Send message"
-              className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f6feb] text-white shadow-[0_5px_18px_rgba(47,111,235,0.4)] transition hover:bg-[#3b7cff] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
+              className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#093cc8] text-white  transition hover:bg-[#3b7cff] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
             >
               {isLoading ? (
                 <LoaderCircle size={19} className="animate-spin" />

@@ -10,7 +10,7 @@ function NotePreview() {
     <div
       dir="rtl"
       onClick={() => setIsPreview(false)}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-[#020617]/85 px-3 py-3 backdrop-blur-xl animate-fadeIn sm:px-4 sm:py-6"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/95 px-3 py-3 backdrop-blur-xl animate-fadeIn sm:px-4 sm:py-6"
     >
       <div
         onClick={(event) => event.stopPropagation()}
