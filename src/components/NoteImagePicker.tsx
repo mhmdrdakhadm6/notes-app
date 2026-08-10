@@ -1,4 +1,4 @@
-import { ImagePlus, LoaderCircle, Trash2 } from "lucide-react";
+import { Camera, Images, LoaderCircle, Trash2 } from "lucide-react";
 import { useState, type ChangeEvent } from "react";
 import type { NoteImage } from "../types/nots";
 import { prepareNoteImage } from "../utils/noteImage";
@@ -44,19 +44,43 @@ function NoteImagePicker({ image, onChange }: NoteImagePickerProps) {
           </p>
         </div>
 
+        {isProcessing && (
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-[11px] font-semibold text-slate-500">
+            <LoaderCircle size={14} className="animate-spin" />
+            پردازش تصویر
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <label
-          className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition ${
+          className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition ${
             isProcessing
               ? "cursor-wait border-white/10 bg-white/[0.03] text-slate-500"
-              : "border-cyan-500/25 bg-cyan-500/10 text-cyan-300 hover:border-cyan-500/45 hover:bg-cyan-500/15"
+              : "cursor-pointer border-cyan-500/25 bg-cyan-500/10 text-cyan-300 hover:border-cyan-500/45 hover:bg-cyan-500/15"
           }`}
         >
-          {isProcessing ? (
-            <LoaderCircle size={14} className="animate-spin" />
-          ) : (
-            <ImagePlus size={14} />
-          )}
-          <span>{image ? "تعویض تصویر" : "انتخاب تصویر"}</span>
+          <Camera size={15} />
+          <span>گرفتن عکس</span>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={isProcessing}
+            onChange={handleSelect}
+            className="sr-only"
+          />
+        </label>
+
+        <label
+          className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-semibold transition ${
+            isProcessing
+              ? "cursor-wait border-white/10 bg-white/[0.03] text-slate-500"
+              : "cursor-pointer border-violet-500/25 bg-violet-500/10 text-violet-300 hover:border-violet-500/45 hover:bg-violet-500/15"
+          }`}
+        >
+          <Images size={15} />
+          <span>{image ? "انتخاب عکس دیگر" : "انتخاب از گالری"}</span>
           <input
             type="file"
             accept="image/*"
