@@ -1,5 +1,193 @@
 @import "tailwindcss";
 
+body{
+  background-color: black;
+}
+
+.ai-markdown {
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
+}
+
+.ai-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ai-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-markdown p,
+.ai-markdown ul,
+.ai-markdown ol,
+.ai-markdown blockquote,
+.ai-markdown pre,
+.ai-markdown table,
+.ai-markdown .katex-display {
+  margin-block: 0.75rem;
+}
+
+.ai-markdown h1,
+.ai-markdown h2,
+.ai-markdown h3,
+.ai-markdown h4 {
+  margin-block: 1.35rem 0.65rem;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.ai-markdown h1 {
+  font-size: 1.65rem;
+}
+
+.ai-markdown h2 {
+  font-size: 1.4rem;
+}
+
+.ai-markdown h3 {
+  font-size: 1.2rem;
+}
+
+.ai-markdown h4 {
+  font-size: 1.05rem;
+}
+
+.ai-markdown ul,
+.ai-markdown ol {
+  padding-right: 1.5rem;
+}
+
+.ai-markdown ul {
+  list-style: disc;
+}
+
+.ai-markdown ol {
+  list-style: decimal;
+}
+
+.ai-markdown li + li {
+  margin-top: 0.3rem;
+}
+
+.ai-markdown strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.ai-markdown a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-markdown blockquote {
+  border-right: 3px solid rgba(103, 232, 249, 0.55);
+  padding-right: 1rem;
+  color: #a1a1aa;
+}
+
+.ai-markdown code {
+  direction: ltr;
+  unicode-bidi: embed;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.09);
+  padding: 0.1rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.ai-markdown pre {
+  direction: ltr;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.9rem;
+  background: #090909;
+  padding: 0.9rem 1rem;
+  text-align: left;
+}
+
+.ai-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.ai-markdown .katex,
+.ai-markdown .katex-display {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.ai-markdown .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.35rem;
+  text-align: center;
+}
+
+.ai-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ai-markdown th,
+.ai-markdown td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0.45rem 0.65rem;
+  text-align: right;
+}
+
+.ai-markdown th {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+@keyframes aiResponseEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aiCursorPulse {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.ai-response-enter {
+  animation: aiResponseEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ai-stream-cursor {
+  display: inline-block;
+  width: 0.42rem;
+  height: 1.05rem;
+  margin-right: 0.2rem;
+  border-radius: 9999px;
+  background: #67e8f9;
+  vertical-align: -0.16rem;
+  box-shadow: 0 0 10px rgba(103, 232, 249, 0.5);
+  animation: aiCursorPulse 850ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-response-enter,
+  .ai-stream-cursor {
+    animation: none;
+  }
+}
+
 @font-face {
   font-family: "Ios";
   src: url("/fonts/Ios-15-Regular.ttf") format("truetype");

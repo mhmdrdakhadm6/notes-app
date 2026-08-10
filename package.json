@@ -13,12 +13,17 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "katex": "^0.18.4",
     "lucide-react": "^1.28.0",
     "openai": "^7.4.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hot-toast": "^2.6.0",
+    "react-markdown": "^10.1.0",
     "react-multi-date-picker": "^4.5.2",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

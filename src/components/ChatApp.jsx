@@ -1,4 +1,8 @@
 import OpenAI from "openai";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import {
   ArrowUp,
   Bot,
@@ -15,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import "katex/dist/katex.min.css";
 
 const apiKey = import.meta.env.VITE_GAPGPT_API_KEY;
 
@@ -136,6 +141,12 @@ const MODEL_PROVIDERS = [
 
 const DEFAULT_MODEL = "deepseek-v4-pro";
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
+const RESPONSE_FORMAT_INSTRUCTIONS = `
+پاسخ را به زبان کاربر بده و متن‌های فارسی را راست‌چین‌پسند بنویس.
+برای ساختاربندی پاسخ از Markdown استاندارد استفاده کن.
+برای فرمول‌های ریاضی فقط از LaTeX استفاده کن: فرمول درون‌خطی بین $...$ و فرمول مستقل بین $$...$$.
+فرمول ریاضی را داخل backtick یا code fence قرار نده.
+`;
 
 function getProviderByModel(model) {
   return (
@@ -180,6 +191,96 @@ function getResponseText(response) {
   );
 }
 
+function normalizeMathMarkdown(content) {
+  return content
+    .replace(
+      /```(?:latex|math|tex)\s*\n([\s\S]*?)```/gi,
+      (_, expression) => `$$\n${expression.trim()}\n$$`,
+    )
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression) => {
+      return `$$\n${expression.trim()}\n$$`;
+    })
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expression) => {
+      return `$${expression.trim()}$`;
+  });
+}
+
+function createTextRevealer(onUpdate, onProgress) {
+  let fullText = "";
+  let visibleLength = 0;
+  let timerId = null;
+  let finishResolver = null;
+
+  const finishIfReady = () => {
+    if (visibleLength >= fullText.length && finishResolver) {
+      const resolve = finishResolver;
+      finishResolver = null;
+      resolve(fullText);
+    }
+  };
+
+  const revealNextPart = () => {
+    timerId = null;
+    const remaining = fullText.length - visibleLength;
+
+    if (remaining <= 0) {
+      finishIfReady();
+      return;
+    }
+
+    const step =
+      remaining > 600 ? 12 : remaining > 250 ? 8 : remaining > 80 ? 5 : 3;
+    visibleLength = Math.min(fullText.length, visibleLength + step);
+    onUpdate(fullText.slice(0, visibleLength));
+    onProgress();
+
+    if (visibleLength < fullText.length) {
+      timerId = window.setTimeout(revealNextPart, 34);
+    } else {
+      finishIfReady();
+    }
+  };
+
+  const schedule = () => {
+    if (timerId === null && visibleLength < fullText.length) {
+      timerId = window.setTimeout(revealNextPart, 34);
+    }
+  };
+
+  return {
+    append(text) {
+      fullText += text;
+      schedule();
+    },
+    finish() {
+      if (visibleLength >= fullText.length) {
+        return Promise.resolve(fullText);
+      }
+
+      schedule();
+      return new Promise((resolve) => {
+        finishResolver = resolve;
+      });
+    },
+    getText() {
+      return fullText;
+    },
+  };
+}
+
+function AssistantMessage({ content }) {
+  return (
+    <div className="ai-markdown" dir="rtl">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
+        {normalizeMathMarkdown(content)}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 export default function ChatApp() {
   const [selectedModel, setSelectedModel] = useState(getInitialModel);
   const [activeProviderId, setActiveProviderId] = useState(
@@ -192,7 +293,9 @@ export default function ChatApp() {
   const [error, setError] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
-  const messageEndRef = useRef(null);
+  const chatScrollRef = useRef(null);
+  const shouldFollowStreamRef = useRef(true);
+  const scrollFrameRef = useRef(null);
   const inputRef = useRef(null);
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -201,9 +304,55 @@ export default function ChatApp() {
     MODEL_PROVIDERS.find((provider) => provider.id === activeProviderId) ??
     selectedProvider;
 
+  const messageCount = messages.length;
+
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const scrollContainer = chatScrollRef.current;
+    if (!scrollContainer || !shouldFollowStreamRef.current) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [messageCount]);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  const scheduleStreamScroll = () => {
+    if (!shouldFollowStreamRef.current || scrollFrameRef.current !== null) return;
+
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      const scrollContainer = chatScrollRef.current;
+
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+
+      scrollFrameRef.current = null;
+    });
+  };
+
+  const handleChatScroll = () => {
+    const scrollContainer = chatScrollRef.current;
+    if (!scrollContainer) return;
+
+    const distanceFromBottom =
+      scrollContainer.scrollHeight -
+      scrollContainer.scrollTop -
+      scrollContainer.clientHeight;
+    shouldFollowStreamRef.current = distanceFromBottom < 120;
+  };
 
   const chooseAction = (prompt) => {
     setInput(prompt);
@@ -311,25 +460,94 @@ export default function ChatApp() {
     setError("");
     setIsLoading(true);
     const requestModel = selectedModel;
+    const assistantMessageId = `assistant-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`;
+    shouldFollowStreamRef.current = true;
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "",
+        model: requestModel,
+        isStreaming: true,
+      },
+    ]);
+
+    const textRevealer = createTextRevealer(
+      (content) => {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantMessageId
+              ? { ...message, content }
+              : message,
+          ),
+        );
+      },
+      scheduleStreamScroll,
+    );
 
     try {
-      const response = await client.responses.create({
+      const stream = await client.responses.create({
         model: requestModel,
+        instructions: RESPONSE_FORMAT_INSTRUCTIONS,
         input: nextMessages.map(({ role, content, apiContent: savedContent }) => ({
           role,
           content: savedContent ?? content,
         })),
+        stream: true,
       });
 
-      setMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          content: getResponseText(response),
-          model: requestModel,
-        },
-      ]);
+      for await (const event of stream) {
+        if (event.type === "response.output_text.delta" && event.delta) {
+          textRevealer.append(event.delta);
+        }
+
+        if (event.type === "response.completed" && !textRevealer.getText()) {
+          textRevealer.append(getResponseText(event.response));
+        }
+
+        if (event.type === "response.failed") {
+          throw new Error(
+            event.response?.error?.message ||
+              "The response could not be completed.",
+          );
+        }
+
+        if (event.type === "error") {
+          throw new Error(
+            event.message || "The response stream was interrupted.",
+          );
+        }
+      }
+
+      await textRevealer.finish();
+
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantMessageId
+            ? { ...message, isStreaming: false }
+            : message,
+        ),
+      );
     } catch (requestError) {
+      const receivedText = textRevealer.getText();
+
+      if (receivedText) {
+        await textRevealer.finish();
+      }
+
+      setMessages((current) =>
+        receivedText
+          ? current.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, isStreaming: false }
+                : message,
+            )
+          : current.filter((message) => message.id !== assistantMessageId),
+      );
       setError(
         requestError instanceof Error
           ? requestError.message
@@ -343,7 +561,7 @@ export default function ChatApp() {
   return (
     <div
       dir="ltr"
-      className="relative flex min-h-[620px] flex-col overflow-hidden bg-black text-white sm:min-h-[680px]"
+      className="relative flex h-[620px] flex-col overflow-hidden bg-black text-white sm:h-[680px]"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.13),_transparent_65%)]" />
 
@@ -494,7 +712,11 @@ export default function ChatApp() {
         </div>
       )}
 
-      <div className="custom-scrollbar relative flex-1 overflow-y-auto px-4 pb-36 pt-6 sm:px-8">
+      <div
+        ref={chatScrollRef}
+        onScroll={handleChatScroll}
+        className="custom-scrollbar relative flex-1 overflow-y-auto px-4 pb-36 pt-6 sm:px-8"
+      >
         {messages.length === 0 ? (
           <div className="mx-auto flex min-h-[390px] max-w-md flex-col items-center justify-center">
             <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_12px_38px_rgba(37,99,235,0.2)]">
@@ -529,20 +751,24 @@ export default function ChatApp() {
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
             {messages.map((message, index) => (
               <div
-                key={`${message.role}-${index}`}
+                key={message.id ?? `${message.role}-${index}`}
                 className={`flex ${
                   message.role === "user" ? "justify-end" : "justify-start"
                 }`}
               >
                 <div
-                  className={`max-w-[88%] whitespace-pre-wrap rounded-3xl px-4 py-3 text-[15px] leading-7 sm:max-w-[78%] ${
+                  dir={message.role === "assistant" ? "rtl" : "auto"}
+                  className={`max-w-[88%] rounded-3xl px-4 py-3 text-[15px] leading-7 sm:max-w-[78%] ${
                     message.role === "user"
-                      ? "rounded-br-md bg-[#262626] text-white"
-                      : "rounded-bl-md border border-white/[0.08] bg-[#111] text-zinc-200"
+                      ? "whitespace-pre-wrap rounded-br-md bg-[#262626] text-white"
+                      : "ai-response-enter w-full rounded-bl-md border border-white/[0.08] bg-[#111] text-right text-zinc-200"
                   }`}
                 >
                   {message.role === "assistant" && message.model && (
-                    <span className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-zinc-500">
+                    <span
+                      dir="ltr"
+                      className="mb-2 flex items-center justify-end gap-1.5 text-[11px] font-medium text-zinc-500"
+                    >
                       <Bot size={12} />
                       {message.model}
                     </span>
@@ -572,7 +798,22 @@ export default function ChatApp() {
                     </div>
                   )}
 
-                  {message.content}
+                  {message.role === "assistant" && !message.content ? (
+                    <span className="flex items-center justify-end gap-2 text-sm text-zinc-400">
+                      <LoaderCircle size={15} className="animate-spin" />
+                      در حال فکر کردن...
+                    </span>
+                  ) : message.role === "assistant" ? (
+                    <AssistantMessage content={message.content} />
+                  ) : (
+                    message.content
+                  )}
+
+                  {message.role === "assistant" &&
+                    message.isStreaming &&
+                    message.content && (
+                      <span className="ai-stream-cursor" aria-hidden="true" />
+                    )}
                 </div>
               </div>
             ))}
@@ -585,7 +826,6 @@ export default function ChatApp() {
                 </div>
               </div>
             )}
-            <div ref={messageEndRef} />
           </div>
         )}
       </div>
