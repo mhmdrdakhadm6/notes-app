@@ -8,10 +8,12 @@ import {
   Bot,
   Check,
   ChevronDown,
+  Copy,
   FileText,
   Image,
   LoaderCircle,
   Mic,
+  NotebookPen,
   PenLine,
   Plus,
   Search,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
+import { useNotes } from "../hooks/useNotes";
 
 const apiKey = import.meta.env.VITE_GAPGPT_API_KEY;
 
@@ -282,6 +285,7 @@ function AssistantMessage({ content }) {
 }
 
 export default function ChatApp() {
+  const { setNotes } = useNotes();
   const [selectedModel, setSelectedModel] = useState(getInitialModel);
   const [activeProviderId, setActiveProviderId] = useState(
     () => getProviderByModel(getInitialModel()).id,
@@ -293,6 +297,9 @@ export default function ChatApp() {
   const [error, setError] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
+  const [editingMessageIndex, setEditingMessageIndex] = useState(null);
+  const [copiedMessageId, setCopiedMessageId] = useState(null);
+  const [savedMessageIds, setSavedMessageIds] = useState([]);
   const chatScrollRef = useRef(null);
   const shouldFollowStreamRef = useRef(true);
   const scrollFrameRef = useRef(null);
@@ -354,6 +361,77 @@ export default function ChatApp() {
     shouldFollowStreamRef.current = distanceFromBottom < 120;
   };
 
+  const handleCopyMessage = async (content, messageId) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = content;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
+
+      setCopiedMessageId(messageId);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) =>
+          current === messageId ? null : current,
+        );
+      }, 1600);
+    } catch {
+      setError("متن کپی نشد. لطفاً دوباره تلاش کنید.");
+    }
+  };
+
+  const handleSaveAsNote = (answer, messageId, messageIndex) => {
+    const question = messages
+      .slice(0, messageIndex)
+      .reverse()
+      .find((message) => message.role === "user");
+
+    if (!question?.content?.trim() || !answer.trim()) {
+      setError("سؤال یا پاسخ برای ذخیره در یادداشت‌ها پیدا نشد.");
+      return;
+    }
+
+    setNotes((currentNotes) => [
+      ...currentNotes,
+      {
+        id: crypto.randomUUID(),
+        title: question.content.trim(),
+        description: answer.trim(),
+        date: new Date(),
+        recurrence: "none",
+        isPermanent: true,
+      },
+    ]);
+    setSavedMessageIds((current) =>
+      current.includes(messageId) ? current : [...current, messageId],
+    );
+    setError("");
+  };
+
+  const startEditingMessage = (message, index) => {
+    if (isLoading) return;
+
+    setEditingMessageIndex(index);
+    setInput(message.content);
+    setAttachment(message.attachment ?? null);
+    setError("");
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const cancelEditingMessage = () => {
+    setEditingMessageIndex(null);
+    setInput("");
+    setAttachment(null);
+    inputRef.current?.focus();
+  };
+
   const chooseAction = (prompt) => {
     setInput(prompt);
     inputRef.current?.focus();
@@ -412,7 +490,13 @@ export default function ChatApp() {
     event?.preventDefault();
 
     const text = input.trim();
-    if ((!text && !attachment) || isLoading) return;
+    const isEditing = editingMessageIndex !== null;
+    const messageAttachment = attachment;
+    const conversationBeforeMessage = isEditing
+      ? messages.slice(0, editingMessageIndex)
+      : messages;
+
+    if ((!text && !messageAttachment) || isLoading) return;
 
     if (!client) {
       setError(
@@ -423,39 +507,42 @@ export default function ChatApp() {
 
     const messageText =
       text ||
-      (attachment?.kind === "image"
+      (messageAttachment?.kind === "image"
         ? "Please analyze this image."
         : "Please analyze this file.");
     const apiContent = [{ type: "input_text", text: messageText }];
 
-    if (attachment?.kind === "image") {
+    if (messageAttachment?.kind === "image") {
       apiContent.push({
         type: "input_image",
-        image_url: attachment.dataUrl,
+        image_url: messageAttachment.dataUrl,
         detail: "auto",
       });
     }
 
-    if (attachment?.kind === "file") {
+    if (messageAttachment?.kind === "file") {
       apiContent.push({
         type: "input_file",
-        filename: attachment.name,
-        file_data: attachment.dataUrl.split(",")[1] ?? attachment.dataUrl,
+        filename: messageAttachment.name,
+        file_data:
+          messageAttachment.dataUrl.split(",")[1] ?? messageAttachment.dataUrl,
       });
     }
 
     const nextMessages = [
-      ...messages,
+      ...conversationBeforeMessage,
       {
+        id: `user-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         role: "user",
         content: messageText,
         apiContent,
-        attachment,
+        attachment: messageAttachment,
       },
     ];
     setMessages(nextMessages);
     setInput("");
     setAttachment(null);
+    setEditingMessageIndex(null);
     setIsAttachmentMenuOpen(false);
     setError("");
     setIsLoading(true);
@@ -752,8 +839,8 @@ export default function ChatApp() {
             {messages.map((message, index) => (
               <div
                 key={message.id ?? `${message.role}-${index}`}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
+                className={`flex flex-col ${
+                  message.role === "user" ? "items-end" : "items-start"
                 }`}
               >
                 <div
@@ -815,17 +902,97 @@ export default function ChatApp() {
                       <span className="ai-stream-cursor" aria-hidden="true" />
                     )}
                 </div>
+
+                {!message.isStreaming && message.content && (
+                  <div
+                    className={`mt-1.5 flex items-center gap-1 px-2 ${
+                      message.role === "user" ? "flex-row-reverse" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleCopyMessage(
+                          message.content,
+                          message.id ?? `${message.role}-${index}`,
+                        )
+                      }
+                      aria-label={
+                        message.role === "user"
+                          ? "کپی کردن سؤال"
+                          : "کپی کردن پاسخ"
+                      }
+                      title={
+                        message.role === "user"
+                          ? "کپی کردن سؤال"
+                          : "کپی کردن پاسخ"
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-200"
+                    >
+                      {copiedMessageId ===
+                      (message.id ?? `${message.role}-${index}`) ? (
+                        <Check size={15} className="text-emerald-400" />
+                      ) : (
+                        <Copy size={15} />
+                      )}
+                    </button>
+
+                    {message.role === "user" && (
+                      <button
+                        type="button"
+                        onClick={() => startEditingMessage(message, index)}
+                        disabled={isLoading}
+                        aria-label="ویرایش سؤال"
+                        title="ویرایش سؤال"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <PenLine size={15} />
+                      </button>
+                    )}
+
+                    {message.role === "assistant" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSaveAsNote(
+                            message.content,
+                            message.id ?? `${message.role}-${index}`,
+                            index,
+                          )
+                        }
+                        disabled={savedMessageIds.includes(
+                          message.id ?? `${message.role}-${index}`,
+                        )}
+                        aria-label={
+                          savedMessageIds.includes(
+                            message.id ?? `${message.role}-${index}`,
+                          )
+                            ? "پاسخ در یادداشت‌ها ذخیره شد"
+                            : "ذخیره سؤال و پاسخ در یادداشت‌ها"
+                        }
+                        title={
+                          savedMessageIds.includes(
+                            message.id ?? `${message.role}-${index}`,
+                          )
+                            ? "در یادداشت‌ها ذخیره شد"
+                            : "ذخیره در یادداشت‌ها"
+                        }
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-200 disabled:cursor-default disabled:text-emerald-400"
+                      >
+                        {savedMessageIds.includes(
+                          message.id ?? `${message.role}-${index}`,
+                        ) ? (
+                          <Check size={15} />
+                        ) : (
+                          <NotebookPen size={15} />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
 
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-3xl rounded-bl-md border border-white/[0.08] bg-[#111] px-4 py-3 text-sm text-zinc-400">
-                  <LoaderCircle size={16} className="animate-spin" />
-                  Thinking…
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -849,6 +1016,27 @@ export default function ChatApp() {
             className="hidden"
             onChange={(event) => handleAttachmentSelect(event, "file")}
           />
+
+          {editingMessageIndex !== null && (
+            <div
+              dir="rtl"
+              className="mx-1 mb-1 flex items-center justify-between rounded-2xl border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-sm text-blue-100"
+            >
+              <span className="flex items-center gap-2">
+                <PenLine size={15} className="text-blue-300" />
+                در حال ویرایش سؤال
+              </span>
+              <button
+                type="button"
+                onClick={cancelEditingMessage}
+                aria-label="لغو ویرایش"
+                title="لغو ویرایش"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-blue-200 transition hover:bg-white/10 hover:text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
 
           {attachment && (
             <div className="mx-1 mb-1 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-2 pr-3">
@@ -929,11 +1117,20 @@ export default function ChatApp() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                const isMobileInput =
+                  window.matchMedia("(pointer: coarse)").matches ||
+                  window.matchMedia("(max-width: 767px)").matches;
+
+                if (
+                  event.key === "Enter" &&
+                  !event.shiftKey &&
+                  !isMobileInput
+                ) {
                   event.preventDefault();
                   handleSend();
                 }
               }}
+              enterKeyHint="enter"
               placeholder="Message AI"
               aria-label="Message AI"
               className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-[16px] leading-6 text-white outline-none placeholder:text-zinc-500"
