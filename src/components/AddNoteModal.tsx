@@ -4,14 +4,20 @@ import { useState } from "react";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persianFa from "react-date-object/locales/persian_fa";
-import type { NotesType } from "../types/nots";
+import type { NoteImage, NotesType } from "../types/nots";
+import NoteImagePicker from "./NoteImagePicker";
 
-const resolveComponent = (comp: any) => {
-  let c = comp;
-  while (c && typeof c === "object" && !c.$$typeof && c.default) {
-    c = c.default;
+const resolveComponent = <T,>(component: T): T => {
+  let resolved: unknown = component;
+  while (
+    resolved &&
+    typeof resolved === "object" &&
+    !("$$typeof" in resolved) &&
+    "default" in resolved
+  ) {
+    resolved = resolved.default;
   }
-  return c;
+  return resolved as T;
 };
 
 const DatePickerComponent = resolveComponent(DatePicker);
@@ -44,6 +50,7 @@ export default function AddNoteModal() {
   const [customDate, setCustomDate] = useState(getLocalDateValue(new Date()));
   const [dayOfWeek, setDayOfWeek] = useState(new Date().getDay());
   const [dayOfMonth, setDayOfMonth] = useState(new Date().getDate());
+  const [image, setImage] = useState<NoteImage>();
 
   if (!isOpen) return null;
 
@@ -55,6 +62,7 @@ export default function AddNoteModal() {
     setCustomDate(getLocalDateValue(new Date()));
     setDayOfWeek(new Date().getDay());
     setDayOfMonth(new Date().getDate());
+    setImage(undefined);
     setIsOpen(false);
   };
 
@@ -75,6 +83,7 @@ export default function AddNoteModal() {
         !isPermanent && recurrence === "weekly" ? dayOfWeek : undefined,
       dayOfMonth:
         !isPermanent && recurrence === "monthly" ? dayOfMonth : undefined,
+      image,
     };
 
     setNotes((prevNotes) => {
@@ -172,6 +181,8 @@ export default function AddNoteModal() {
               className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-[#04070d]/60 p-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
             />
           </div>
+
+          <NoteImagePicker image={image} onChange={setImage} />
 
           <div className="relative overflow-hidden rounded-2xl border border-amber-500/10 bg-amber-500/[0.03] p-4 transition-all duration-200 hover:border-amber-500/25">
             <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 to-transparent" />

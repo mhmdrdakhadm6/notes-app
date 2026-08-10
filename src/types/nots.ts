@@ -1,3 +1,8 @@
+export interface NoteImage {
+  dataUrl: string;
+  name: string;
+}
+
 export interface NotesType {
   title: string;
   description: string;
@@ -8,4 +13,5 @@ export interface NotesType {
   customDate?: string;
   dayOfWeek?: number;
   dayOfMonth?: number;
+  image?: NoteImage;
 }

@@ -10,6 +10,8 @@
 import type { MouseEvent } from "react";
 import { useNotes } from "../hooks/useNotes";
 import { toLocalDateOnly } from "../utils/date";
+import type { NoteImage } from "../types/nots";
+import NoteImageView from "./NoteImageView";
 
 interface NotesItemProps {
   title: string;
@@ -21,6 +23,7 @@ interface NotesItemProps {
   customDate?: string;
   dayOfWeek?: number;
   dayOfMonth?: number;
+  image?: NoteImage;
   index?: number;
 }
 
@@ -34,6 +37,7 @@ function NotesItem({
   customDate,
   dayOfWeek,
   dayOfMonth,
+  image,
   index = 0,
 }: NotesItemProps) {
   const {
@@ -56,6 +60,7 @@ function NotesItem({
       customDate,
       dayOfWeek,
       dayOfMonth,
+      image,
     });
 
     setIsEdit(true);
@@ -198,7 +203,7 @@ function NotesItem({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
           <button
             onClick={handleEditClick}
             type="button"
@@ -222,6 +227,12 @@ function NotesItem({
       {description && (
         <div className="relative mt-2.5 rounded-lg border border-white/5 bg-white/[0.02] p-2.5">
           <p className="text-xs leading-5 text-slate-300">{displayText}</p>
+        </div>
+      )}
+
+      {image && (
+        <div className="relative mt-2.5">
+          <NoteImageView image={image} compact />
         </div>
       )}
 

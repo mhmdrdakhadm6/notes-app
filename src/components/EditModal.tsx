@@ -1,19 +1,25 @@
 import { Pencil, X, Calendar, Settings2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DatePicker, { DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persianFa from "react-date-object/locales/persian_fa";
 import { useNotes } from "../hooks/useNotes";
-import type { NotesType } from "../types/nots";
+import type { NoteImage, NotesType } from "../types/nots";
+import NoteImagePicker from "./NoteImagePicker";
 
-const resolveComponent = (comp: any) => {
-  let c = comp;
+const resolveComponent = <T,>(component: T): T => {
+  let resolved: unknown = component;
 
-  while (c && typeof c === "object" && !c.$$typeof && c.default) {
-    c = c.default;
+  while (
+    resolved &&
+    typeof resolved === "object" &&
+    !("$$typeof" in resolved) &&
+    "default" in resolved
+  ) {
+    resolved = resolved.default;
   }
 
-  return c;
+  return resolved as T;
 };
 
 const DatePickerComponent = resolveComponent(DatePicker);
@@ -32,42 +38,37 @@ const parseLocalDate = (dateValue: string) => {
   return new Date(year, month - 1, day);
 };
 
-function EditModal() {
-  const {
-    EditingNote,
-    setEditingNote,
-    ToggleEdit,
-    isEdit,
-    setIsEdit,
-  } = useNotes();
+interface EditModalContentProps {
+  editingNote: NotesType;
+}
 
-  const [newTitle, setNewTitle] = useState("");
-  const [newDescription, setNewDescription] = useState("");
+function EditModalContent({ editingNote }: EditModalContentProps) {
+  const { setEditingNote, ToggleEdit, setIsEdit } = useNotes();
+
+  const [newTitle, setNewTitle] = useState(editingNote.title);
+  const [newDescription, setNewDescription] = useState(
+    editingNote.description,
+  );
   const [newRecurrence, setNewRecurrence] =
-    useState<NotesType["recurrence"]>("none");
-  const [newIsPermanent, setNewIsPermanent] = useState(false);
-  const [newCustomDate, setNewCustomDate] = useState("");
-  const [newDayOfWeek, setNewDayOfWeek] = useState(0);
-  const [newDayOfMonth, setNewDayOfMonth] = useState(1);
-
-  useEffect(() => {
-    if (!EditingNote || !isEdit) return;
-
-    setNewTitle(EditingNote.title);
-    setNewDescription(EditingNote.description);
-    setNewRecurrence(EditingNote.recurrence || "none");
-    setNewIsPermanent(EditingNote.isPermanent ?? false);
-    setNewCustomDate(
-      EditingNote.customDate || getLocalDateValue(new Date())
-    );
-    setNewDayOfWeek(EditingNote.dayOfWeek ?? new Date().getDay());
-    setNewDayOfMonth(EditingNote.dayOfMonth ?? new Date().getDate());
-  }, [EditingNote, isEdit]);
+    useState<NotesType["recurrence"]>(editingNote.recurrence || "none");
+  const [newIsPermanent, setNewIsPermanent] = useState(
+    editingNote.isPermanent ?? false,
+  );
+  const [newCustomDate, setNewCustomDate] = useState(
+    editingNote.customDate || getLocalDateValue(new Date()),
+  );
+  const [newDayOfWeek, setNewDayOfWeek] = useState(
+    editingNote.dayOfWeek ?? new Date().getDay(),
+  );
+  const [newDayOfMonth, setNewDayOfMonth] = useState(
+    editingNote.dayOfMonth ?? new Date().getDate(),
+  );
+  const [newImage, setNewImage] = useState<NoteImage | undefined>(
+    editingNote.image,
+  );
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!EditingNote) return;
 
     const title = newTitle.trim();
     const description = newDescription.trim();
@@ -75,7 +76,7 @@ function EditModal() {
     if (!title || !description) return;
 
     ToggleEdit({
-      ...EditingNote,
+      ...editingNote,
       title,
       description,
       recurrence: newIsPermanent ? "none" : newRecurrence,
@@ -92,6 +93,7 @@ function EditModal() {
         !newIsPermanent && newRecurrence === "monthly"
           ? newDayOfMonth
           : undefined,
+      image: newImage,
     });
 
     setEditingNote(null);
@@ -102,8 +104,6 @@ function EditModal() {
     setEditingNote(null);
     setIsEdit(false);
   };
-
-  if (!EditingNote || !isEdit) return null;
 
   const weekdays = [
     { value: 6, label: "شنبه" },
@@ -196,6 +196,8 @@ function EditModal() {
               className="min-h-32 w-full resize-none rounded-xl border border-white/10 bg-[#04070d]/60 p-4 text-sm text-white outline-none placeholder:text-slate-500 transition-all duration-200 focus:border-cyan-500/40 focus:bg-[#04070d]/90 focus:ring-2 focus:ring-cyan-500/10"
             />
           </div>
+
+          <NoteImagePicker image={newImage} onChange={setNewImage} />
 
           <div className="relative overflow-hidden rounded-2xl border border-amber-500/10 bg-amber-500/[0.03] p-4 transition-all duration-200 hover:border-amber-500/25">
             <div className="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-amber-400 to-transparent" />
@@ -379,6 +381,14 @@ function EditModal() {
       </section>
     </div>
   );
+}
+
+function EditModal() {
+  const { EditingNote, isEdit } = useNotes();
+
+  if (!EditingNote || !isEdit) return null;
+
+  return <EditModalContent key={EditingNote.id} editingNote={EditingNote} />;
 }
 
 export default EditModal;

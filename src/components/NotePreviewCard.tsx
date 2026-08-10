@@ -9,15 +9,19 @@ import {
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { useNotes } from "../hooks/useNotes";
+import type { NoteImage } from "../types/nots";
+import NoteImageView from "./NoteImageView";
 
 interface NotePreviewCardProps {
   title: string;
   description: string;
+  image?: NoteImage;
 }
 
 function NotePreviewCard({
   title,
   description,
+  image,
 }: NotePreviewCardProps) {
   const { setIsPreview } = useNotes();
 
@@ -45,11 +49,11 @@ function NotePreviewCard({
     <>
       <div
         dir="rtl"
-        className="relative overflow-hidden rounded-[34px] border border-white/[0.08] bg-[#0b1220]/90 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
+        className="relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#0b1220]/90 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[34px]"
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,.12),transparent_24%)]" />
 
-        <div className="relative border-b border-white/[0.06] px-6 py-5 sm:px-8">
+        <div className="relative shrink-0 border-b border-white/[0.06] px-4 py-4 sm:px-8 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -111,14 +115,19 @@ function NotePreviewCard({
           </div>
         </div>
 
-        <div className="relative px-6 py-6 sm:px-8 sm:py-7">
-          <div className="custom-scrollbar max-h-[65vh] overflow-y-auto rounded-3xl border border-white/[0.06] bg-black/[0.14] p-5 shadow-inner shadow-black/20 sm:p-7">
+        <div className="relative flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-8 sm:py-7">
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/[0.06] bg-black/[0.14] p-4 shadow-inner shadow-black/20 sm:rounded-3xl sm:p-7">
+            {image && (
+              <div className="mb-5">
+                <NoteImageView image={image} />
+              </div>
+            )}
             <p className="whitespace-pre-wrap break-words text-[15px] leading-9 text-slate-200 sm:text-[17px]">
               {description}
             </p>
           </div>
 
-          <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/[0.05] pt-5">
+          <div className="mt-4 flex shrink-0 flex-col items-start justify-between gap-2 border-t border-white/[0.05] pt-4 sm:mt-5 sm:flex-row sm:items-center sm:gap-3 sm:pt-5">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,.7)]" />
 
