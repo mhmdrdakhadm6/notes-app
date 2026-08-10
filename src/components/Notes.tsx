@@ -4,6 +4,7 @@ import {
   SlidersHorizontal,
   CalendarDays,
   Layers,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import AddNoteModal from "./AddNoteModal";
@@ -15,6 +16,7 @@ import EditModal from "./EditModal";
 import NotePreview from "./NotePreview";
 import type { NotesType } from "../types/nots";
 import { toLocalDateOnly } from "../utils/date";
+import ChatApp from "./ChatApp.jsx";
 
 const isExpiredNote = (note: NotesType, today: Date) => {
   if (note.isPermanent || note.recurrence !== "none" || !note.customDate) {
@@ -34,7 +36,7 @@ const isExpiredNote = (note: NotesType, today: Date) => {
 export default function Notes() {
   const { setIsOpen, notes, setNotes } = useNotes();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterMode, setFilterMode] = useState<"today" | "all">("today");
+  const [filterMode, setFilterMode] = useState<"today" | "all" | "ai">("today");
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 
@@ -112,7 +114,7 @@ export default function Notes() {
         selectedDate.setHours(0, 0, 0, 0);
       }
 
-      if (filterMode === "all") return true;
+      if (filterMode === "all" || filterMode === "ai") return true;
 
       if (note.recurrence === "weekly") {
         return note.dayOfWeek === today.getDay();
@@ -215,34 +217,52 @@ export default function Notes() {
               <Layers size={16} />
               <span>همه</span>
             </button>
+
+            <button
+              onClick={() => setFilterMode("ai")}
+              className={`inline-flex h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-medium transition ${
+                filterMode === "ai"
+                  ? "border border-blue-400/30 bg-blue-500/15 text-blue-300"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Sparkles size={16} />
+              <span>AI</span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 sm:px-8">
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-slate-300 sm:text-sm">
-          {notes.length} یادداشت در کل
-        </span>
-        <span className="text-xs text-slate-400 sm:text-sm">
-          {filteredNotes.length} مورد نمایش
-        </span>
-      </div>
-
-      {notes.length === 0 ? (
-        <Empty />
+      {filterMode === "ai" ? (
+        <ChatApp />
       ) : (
-        <NotesMap
-          notes={filteredNotes}
-          searchQuery={searchQuery}
-          totalNotes={notes.length}
-          filterMode={filterMode}
-        />
+        <>
+          <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 sm:px-8">
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-xs text-slate-300 sm:text-sm">
+              {notes.length} یادداشت در کل
+            </span>
+            <span className="text-xs text-slate-400 sm:text-sm">
+              {filteredNotes.length} مورد نمایش
+            </span>
+          </div>
+
+          {notes.length === 0 ? (
+            <Empty />
+          ) : (
+            <NotesMap
+              notes={filteredNotes}
+              searchQuery={searchQuery}
+              totalNotes={notes.length}
+              filterMode={filterMode}
+            />
+          )}
+        </>
       )}
 
       <AddNoteModal />
       <EditModal />
       <NotePreview />
-      <Footer />
+      {filterMode !== "ai" && <Footer />}
     </section>
   );
 }
