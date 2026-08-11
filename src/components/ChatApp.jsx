@@ -6,57 +6,51 @@ import remarkMath from "remark-math";
 import {
   ArrowUp,
   Bot,
+  Camera,
   Check,
   ChevronDown,
   Copy,
+  Eye,
+  EyeOff,
   FileText,
   Image,
+  KeyRound,
   LoaderCircle,
   Mic,
   NotebookPen,
   PenLine,
   Plus,
-  Search,
+  ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
 import { useNotes } from "../hooks/useNotes";
 
-const apiKey = import.meta.env.VITE_GAPGPT_API_KEY;
+const ENV_API_KEY = import.meta.env.VITE_GAPGPT_API_KEY?.trim() ?? "";
+const API_KEY_STORAGE = "notes-ai-api-key";
 
-const client = apiKey
-  ? new OpenAI({
-      apiKey,
-      baseURL: "https://api.gapgpt.app/v1",
-      dangerouslyAllowBrowser: true,
-    })
-  : null;
+function getInitialApiKey() {
+  return (
+    window.sessionStorage.getItem(API_KEY_STORAGE) ||
+    window.localStorage.getItem(API_KEY_STORAGE) ||
+    ENV_API_KEY
+  );
+}
 
-const QUICK_ACTIONS = [
-  {
-    label: "Create an image",
-    prompt: "Create an image of ",
-    icon: Image,
-    color: "text-fuchsia-300",
-    background: "bg-fuchsia-400/10",
-  },
-  {
-    label: "Write or edit",
-    prompt: "Help me write or edit ",
-    icon: PenLine,
-    color: "text-amber-300",
-    background: "bg-amber-400/10",
-  },
-  {
-    label: "Search the web",
-    prompt: "Search the web for ",
-    icon: Search,
-    color: "text-sky-300",
-    background: "bg-sky-400/10",
-  },
-];
+function getInitialRememberApiKey() {
+  return Boolean(window.localStorage.getItem(API_KEY_STORAGE));
+}
+
+function createApiClient(apiKey) {
+  return new OpenAI({
+    apiKey,
+    baseURL: "https://api.gapgpt.app/v1",
+    dangerouslyAllowBrowser: true,
+  });
+}
 
 const MODEL_PROVIDERS = [
   {
@@ -286,6 +280,14 @@ function AssistantMessage({ content }) {
 
 export default function ChatApp() {
   const { setNotes } = useNotes();
+  const [apiKey, setApiKey] = useState(getInitialApiKey);
+  const [apiKeyDraft, setApiKeyDraft] = useState(getInitialApiKey);
+  const [rememberApiKey, setRememberApiKey] = useState(
+    getInitialRememberApiKey,
+  );
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState("");
   const [selectedModel, setSelectedModel] = useState(getInitialModel);
   const [activeProviderId, setActiveProviderId] = useState(
     () => getProviderByModel(getInitialModel()).id,
@@ -294,6 +296,7 @@ export default function ChatApp() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
@@ -305,7 +308,10 @@ export default function ChatApp() {
   const scrollFrameRef = useRef(null);
   const inputRef = useRef(null);
   const imageInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
+  const speechBaseInputRef = useRef("");
   const selectedProvider = getProviderByModel(selectedModel);
   const activeProvider =
     MODEL_PROVIDERS.find((provider) => provider.id === activeProviderId) ??
@@ -331,6 +337,11 @@ export default function ChatApp() {
     () => () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.abort();
+        speechRecognitionRef.current = null;
       }
     },
     [],
@@ -432,9 +443,53 @@ export default function ChatApp() {
     inputRef.current?.focus();
   };
 
-  const chooseAction = (prompt) => {
-    setInput(prompt);
-    inputRef.current?.focus();
+  const openApiKeyModal = () => {
+    setApiKeyDraft(apiKey);
+    setRememberApiKey(Boolean(window.localStorage.getItem(API_KEY_STORAGE)));
+    setApiKeyError("");
+    setIsApiKeyVisible(false);
+    setIsApiKeyModalOpen(true);
+  };
+
+  const closeApiKeyModal = () => {
+    setIsApiKeyModalOpen(false);
+    setApiKeyError("");
+    setIsApiKeyVisible(false);
+  };
+
+  const saveApiKey = (event) => {
+    event.preventDefault();
+    const nextApiKey = apiKeyDraft.trim();
+
+    if (!nextApiKey) {
+      setApiKeyError("لطفاً API Key خود را وارد کنید.");
+      return;
+    }
+
+    if (rememberApiKey) {
+      window.localStorage.setItem(API_KEY_STORAGE, nextApiKey);
+      window.sessionStorage.removeItem(API_KEY_STORAGE);
+    } else {
+      window.sessionStorage.setItem(API_KEY_STORAGE, nextApiKey);
+      window.localStorage.removeItem(API_KEY_STORAGE);
+    }
+
+    setApiKey(nextApiKey);
+    setError("");
+    closeApiKeyModal();
+  };
+
+  const removeApiKey = () => {
+    window.localStorage.removeItem(API_KEY_STORAGE);
+    window.sessionStorage.removeItem(API_KEY_STORAGE);
+    setApiKey(ENV_API_KEY);
+    setApiKeyDraft(ENV_API_KEY);
+    setRememberApiKey(false);
+    setApiKeyError("");
+
+    if (ENV_API_KEY) {
+      closeApiKeyModal();
+    }
   };
 
   const openModelPicker = () => {
@@ -486,6 +541,82 @@ export default function ChatApp() {
     }
   };
 
+  const toggleVoiceRecording = () => {
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError(
+        "مرورگر شما تبدیل گفتار به متن را پشتیبانی نمی‌کند. لطفاً از Chrome یا Edge استفاده کنید.",
+      );
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    speechBaseInputRef.current = input.trimEnd();
+    recognition.lang = "fa-IR";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setError("");
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      const separator = speechBaseInputRef.current && transcript ? " " : "";
+
+      setInput(`${speechBaseInputRef.current}${separator}${transcript}`);
+    };
+
+    recognition.onerror = (event) => {
+      setIsListening(false);
+
+      if (event.error === "aborted") return;
+
+      const errorMessages = {
+        "not-allowed":
+          "دسترسی میکروفون داده نشد. لطفاً اجازه استفاده از میکروفون را در تنظیمات مرورگر فعال کنید.",
+        "audio-capture":
+          "میکروفونی پیدا نشد. اتصال و تنظیمات میکروفون دستگاه را بررسی کنید.",
+        network:
+          "ارتباط سرویس تشخیص گفتار برقرار نشد. اتصال اینترنت را بررسی کنید.",
+        "no-speech": "صدایی شنیده نشد؛ دوباره روی میکروفون بزنید و صحبت کنید.",
+      };
+
+      setError(
+        errorMessages[event.error] ||
+          "تبدیل گفتار به متن متوقف شد. لطفاً دوباره تلاش کنید.",
+      );
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      speechRecognitionRef.current = null;
+      window.requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    speechRecognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      speechRecognitionRef.current = null;
+      setIsListening(false);
+      setError("میکروفون شروع نشد. لطفاً دوباره تلاش کنید.");
+    }
+  };
+
   const handleSend = async (event) => {
     event?.preventDefault();
 
@@ -498,10 +629,13 @@ export default function ChatApp() {
 
     if ((!text && !messageAttachment) || isLoading) return;
 
-    if (!client) {
-      setError(
-        "VITE_GAPGPT_API_KEY is missing. Add it to your .env.local file and restart the app.",
-      );
+    if (isListening) {
+      speechRecognitionRef.current?.stop();
+    }
+
+    if (!apiKey.trim()) {
+      setError("برای شروع گفتگو، ابتدا API Key خود را وارد کنید.");
+      openApiKeyModal();
       return;
     }
 
@@ -577,6 +711,7 @@ export default function ChatApp() {
     );
 
     try {
+      const client = createApiClient(apiKey.trim());
       const stream = await client.responses.create({
         model: requestModel,
         instructions: RESPONSE_FORMAT_INSTRUCTIONS,
@@ -655,6 +790,31 @@ export default function ChatApp() {
       <div className="relative z-10 flex items-center justify-center border-b border-white/[0.07] bg-black/70 px-4 py-3 backdrop-blur-xl">
         <button
           type="button"
+          onClick={openApiKeyModal}
+          disabled={isLoading}
+          className={`absolute right-3 flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition sm:right-4 ${
+            apiKey
+              ? "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-300 hover:bg-emerald-400/[0.13]"
+              : "border-amber-400/25 bg-amber-400/[0.08] text-amber-200 hover:bg-amber-400/[0.14]"
+          } disabled:cursor-not-allowed disabled:opacity-60`}
+          aria-label={apiKey ? "مدیریت API Key" : "افزودن API Key"}
+          title={apiKey ? "مدیریت API Key" : "افزودن API Key"}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              apiKey
+                ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
+                : "bg-amber-300"
+            }`}
+          />
+          <KeyRound size={16} />
+          <span className="hidden sm:inline">
+            {apiKey ? "API متصل" : "افزودن API"}
+          </span>
+        </button>
+
+        <button
+          type="button"
           onClick={openModelPicker}
           disabled={isLoading}
           className="group flex max-w-full items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.05] py-2 pl-2 pr-3 text-left transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
@@ -679,6 +839,148 @@ export default function ChatApp() {
           />
         </button>
       </div>
+
+      {isApiKeyModalOpen && (
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md sm:items-center sm:p-5">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={closeApiKeyModal}
+            aria-label="بستن پنجره API Key"
+          />
+
+          <section
+            dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="api-key-title"
+            className="relative w-full overflow-hidden rounded-t-[30px] border border-white/10 bg-[#111214] shadow-[0_28px_90px_rgba(0,0,0,0.75)] sm:max-w-lg sm:rounded-[30px]"
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.16),_transparent_68%)]" />
+
+            <div className="relative border-b border-white/[0.07] px-5 pb-5 pt-6 sm:px-7">
+              <button
+                type="button"
+                onClick={closeApiKeyModal}
+                className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.07] hover:text-white"
+                aria-label="بستن"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-300/20 bg-emerald-400/10 text-emerald-300 shadow-[0_12px_32px_rgba(16,185,129,0.12)]">
+                <KeyRound size={23} />
+              </div>
+              <h3
+                id="api-key-title"
+                className="text-xl font-bold tracking-tight text-white"
+              >
+                اتصال API شخصی
+              </h3>
+              <p className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
+                کلید GapGPT خودت را وارد کن تا درخواست‌ها مستقیماً با حساب
+                خودت ارسال شوند.
+              </p>
+            </div>
+
+            <form onSubmit={saveApiKey} className="relative space-y-4 p-5 sm:p-7">
+              <div>
+                <label
+                  htmlFor="user-api-key"
+                  className="mb-2 block text-xs font-semibold text-zinc-300"
+                >
+                  API Key
+                </label>
+                <div
+                  dir="ltr"
+                  className={`flex items-center rounded-2xl border bg-black/35 px-3 transition focus-within:ring-4 ${
+                    apiKeyError
+                      ? "border-red-400/50 focus-within:border-red-400/70 focus-within:ring-red-400/10"
+                      : "border-white/10 focus-within:border-emerald-400/45 focus-within:ring-emerald-400/10"
+                  }`}
+                >
+                  <KeyRound size={17} className="shrink-0 text-zinc-500" />
+                  <input
+                    id="user-api-key"
+                    type={isApiKeyVisible ? "text" : "password"}
+                    value={apiKeyDraft}
+                    onChange={(event) => {
+                      setApiKeyDraft(event.target.value);
+                      setApiKeyError("");
+                    }}
+                    autoComplete="off"
+                    autoFocus
+                    spellCheck={false}
+                    placeholder="sk-••••••••••••••••"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-3.5 font-mono text-sm text-white outline-none placeholder:text-zinc-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsApiKeyVisible((current) => !current)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-white/[0.07] hover:text-zinc-200"
+                    aria-label={
+                      isApiKeyVisible ? "مخفی کردن کلید" : "نمایش کلید"
+                    }
+                  >
+                    {isApiKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {apiKeyError && (
+                  <p className="mt-2 text-xs text-red-400">{apiKeyError}</p>
+                )}
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 transition hover:bg-white/[0.04]">
+                <input
+                  type="checkbox"
+                  checked={rememberApiKey}
+                  onChange={(event) => setRememberApiKey(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-emerald-500"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-zinc-200">
+                    ذخیره روی این دستگاه
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-zinc-500">
+                    اگر خاموش باشد، کلید فقط تا پایان همین نشست مرورگر نگه‌داری
+                    می‌شود.
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex items-start gap-2.5 rounded-2xl bg-blue-500/[0.07] p-3.5 text-xs leading-5 text-blue-200/75">
+                <ShieldCheck size={17} className="mt-0.5 shrink-0 text-blue-300" />
+                <p>
+                  کلید داخل پیام‌ها یا یادداشت‌ها قرار نمی‌گیرد. در دستگاه‌های
+                  عمومی گزینه ذخیره را فعال نکن.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="submit"
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 text-sm font-bold text-emerald-950 transition hover:bg-emerald-400 active:scale-[0.99]"
+                >
+                  <Check size={18} />
+                  ذخیره و اتصال
+                </button>
+
+                {(apiKey || apiKeyDraft) && (
+                  <button
+                    type="button"
+                    onClick={removeApiKey}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-red-400/15 bg-red-400/[0.06] text-red-300 transition hover:border-red-400/25 hover:bg-red-400/[0.11]"
+                    aria-label="حذف API Key"
+                    title="حذف API Key"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
 
       {isModelPickerOpen && (
         <div
@@ -813,26 +1115,6 @@ export default function ChatApp() {
             <h3 className="mb-7 text-center text-2xl font-semibold tracking-[-0.025em] text-white sm:text-3xl">
               How can I help?
             </h3>
-
-            <div className="flex w-full flex-col items-center gap-2">
-              {QUICK_ACTIONS.map(
-                ({ label, prompt, icon: Icon, color, background }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => chooseAction(prompt)}
-                    className="group flex w-full max-w-[310px] items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-[15px] text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
-                  >
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${background} ${color}`}
-                    >
-                      <Icon size={18} strokeWidth={1.9} />
-                    </span>
-                    <span>{label}</span>
-                  </button>
-                ),
-              )}
-            </div>
           </div>
         ) : (
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -1010,6 +1292,14 @@ export default function ChatApp() {
             onChange={(event) => handleAttachmentSelect(event, "image")}
           />
           <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => handleAttachmentSelect(event, "image")}
+          />
+          <input
             ref={fileInputRef}
             type="file"
             accept=".pdf,.txt,.md,.csv,.json,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.html,.xml,.js,.jsx,.ts,.tsx,.css,.py"
@@ -1087,6 +1377,14 @@ export default function ChatApp() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
+                  >
+                    <Camera size={18} className="text-emerald-300" />
+                    Take photo
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
                   >
@@ -1117,30 +1415,46 @@ export default function ChatApp() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
-                const isMobileInput =
-                  window.matchMedia("(pointer: coarse)").matches ||
-                  window.matchMedia("(max-width: 767px)").matches;
+                const isDesktopInput =
+                  window.matchMedia("(hover: hover) and (pointer: fine)")
+                    .matches;
 
                 if (
                   event.key === "Enter" &&
                   !event.shiftKey &&
-                  !isMobileInput
+                  !event.nativeEvent.isComposing &&
+                  isDesktopInput
                 ) {
                   event.preventDefault();
                   handleSend();
                 }
               }}
               enterKeyHint="enter"
-              placeholder="Message AI"
+              placeholder={isListening ? "در حال گوش دادن..." : "Message AI"}
               aria-label="Message AI"
               className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-[16px] leading-6 text-white outline-none placeholder:text-zinc-500"
             />
 
             <button
               type="button"
-              aria-label="Use microphone"
-              className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-300 transition hover:bg-white/10 hover:text-white"
+              onClick={toggleVoiceRecording}
+              disabled={isLoading}
+              aria-label={
+                isListening ? "توقف تبدیل گفتار به متن" : "شروع تبدیل گفتار به متن"
+              }
+              aria-pressed={isListening}
+              title={
+                isListening ? "توقف ضبط صدا" : "تبدیل گفتار به متن"
+              }
+              className={`relative mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                isListening
+                  ? "bg-red-500/15 text-red-300 shadow-[0_0_0_1px_rgba(248,113,113,0.22)]"
+                  : "text-zinc-300 hover:bg-white/10 hover:text-white"
+              }`}
             >
+              {isListening && (
+                <span className="absolute inset-0 animate-ping rounded-full border border-red-400/35" />
+              )}
               <Mic size={20} strokeWidth={1.8} />
             </button>
 

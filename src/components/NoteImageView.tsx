@@ -25,14 +25,16 @@ function NoteImageView({ image, compact = false }: NoteImageViewProps) {
       <button
         type="button"
         onClick={openImage}
-        className="group/image relative block w-full overflow-hidden rounded-xl border border-white/10 bg-black/20"
+        className={`group/image relative block overflow-hidden rounded-xl border border-white/10 bg-black/20 ${
+          compact ? "aspect-square w-24" : "w-full"
+        }`}
         aria-label="نمایش کامل تصویر"
       >
         <img
           src={image.dataUrl}
           alt={image.name || "تصویر یادداشت"}
           className={`w-full object-cover transition duration-300 group-hover/image:scale-[1.02] ${
-            compact ? "h-32" : "max-h-[420px]"
+            compact ? "h-full" : "max-h-[420px]"
           }`}
         />
         <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white opacity-0 transition group-hover/image:bg-slate-950/35 group-hover/image:opacity-100">

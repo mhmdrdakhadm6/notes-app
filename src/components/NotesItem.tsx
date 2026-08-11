@@ -192,7 +192,7 @@ function NotesItem({
       )}
 
       {image && (
-        <div className="relative mt-4 overflow-hidden rounded-xl border border-[#093cc8]/20">
+        <div className="relative mt-4 w-fit">
           <NoteImageView image={image} compact />
         </div>
       )}
