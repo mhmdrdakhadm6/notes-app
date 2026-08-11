@@ -8,6 +8,8 @@ import {
   CalendarDays,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useNotes } from "../hooks/useNotes";
 import type { NoteImage } from "../types/nots";
 import NoteImageView from "./NoteImageView";
@@ -122,9 +124,20 @@ function NotePreviewCard({
                 <NoteImageView image={image} />
               </div>
             )}
-            <p className="whitespace-pre-wrap break-words text-[15px] leading-9 text-slate-200 sm:text-[17px]">
-              {description}
-            </p>
+            <div className="ai-markdown break-words text-[15px] leading-9 text-slate-200 sm:text-[17px]">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ children }) => (
+                    <div className="ai-markdown-table-wrapper">
+                      <table>{children}</table>
+                    </div>
+                  ),
+                }}
+              >
+                {description}
+              </ReactMarkdown>
+            </div>
           </div>
 
           <div className="mt-4 flex shrink-0 flex-col items-start justify-between gap-2 border-t border-[#093cc8]/10 pt-4 sm:mt-5 sm:flex-row sm:items-center sm:gap-3 sm:pt-5">

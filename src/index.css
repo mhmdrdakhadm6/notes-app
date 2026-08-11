@@ -131,11 +131,30 @@ body{
   border-collapse: collapse;
 }
 
+.ai-markdown-table-wrapper {
+  max-width: 100%;
+  margin-block: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+}
+
+.ai-markdown-table-wrapper table {
+  width: max-content;
+  min-width: 100%;
+  margin-block: 0;
+}
+
 .ai-markdown th,
 .ai-markdown td {
   border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 0.45rem 0.65rem;
   text-align: right;
+}
+
+.ai-markdown-table-wrapper th,
+.ai-markdown-table-wrapper td {
+  white-space: nowrap;
 }
 
 .ai-markdown th {
