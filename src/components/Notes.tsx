@@ -14,6 +14,7 @@ import NotesMap from "./NotesMap";
 import Footer from "./Footer";
 import EditModal from "./EditModal";
 import NotePreview from "./NotePreview";
+import DeleteConfirmModal from "./DeleteConfirmModal";
 import type { NotesType } from "../types/nots";
 import { toLocalDateOnly } from "../utils/date";
 import ChatApp from "./ChatApp.jsx";
@@ -240,6 +241,7 @@ export default function Notes() {
       <AddNoteModal />
       <EditModal />
       <NotePreview />
+      <DeleteConfirmModal />
       {filterMode !== "ai" && <Footer />}
     </section>
   );

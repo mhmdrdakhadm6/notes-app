@@ -1412,6 +1412,7 @@ export default function ChatApp() {
             <textarea
               ref={inputRef}
               rows={1}
+              dir="auto"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
@@ -1432,7 +1433,7 @@ export default function ChatApp() {
               enterKeyHint="enter"
               placeholder={isListening ? "در حال گوش دادن..." : "Message AI"}
               aria-label="Message AI"
-              className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-[16px] leading-6 text-white outline-none placeholder:text-zinc-500"
+              className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-start text-[16px] leading-6 text-white outline-none placeholder:text-zinc-500"
             />
 
             <button

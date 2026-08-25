@@ -1,4 +1,4 @@
-﻿import {
+import {
   Pencil,
   X,
   Calendar,
@@ -40,10 +40,10 @@ function NotesItem({
   index = 0,
 }: NotesItemProps) {
   const {
-    handelDelete,
     setIsEdit,
     setEditingNote,
     handleAddToNotesPerview,
+    setDeletingNoteId,
   } = useNotes();
 
   const handleEditClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -67,7 +67,7 @@ function NotesItem({
 
   const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    handelDelete(id);
+    setDeletingNoteId(id);
   };
 
   const displayText =

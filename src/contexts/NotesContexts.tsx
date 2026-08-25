@@ -22,6 +22,8 @@ interface NotesProviderProps {
   handleAddToNotesPerview: (id: string) => void;
   isPreview: boolean;
   setIsPreview: React.Dispatch<React.SetStateAction<boolean>>;
+  deletingNoteId: string | null;
+  setDeletingNoteId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 type NotesContexProps = PropsWithChildren;
@@ -37,6 +39,7 @@ function NotesProvider({ children }: NotesContexProps) {
   const [EditingNote, setEditingNote] = useState<NotesType | null>(null);
   const [notePreview, setNotePreview] = useState<NotesType | null>(null);
   const [isPreview, setIsPreview] = useState<boolean>(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const handelDelete = (id: string) => {
     setNotes((notes) => notes.filter((note) => note.id !== id));
@@ -84,6 +87,8 @@ function NotesProvider({ children }: NotesContexProps) {
         handleAddToNotesPerview,
         isPreview,
         setIsPreview,
+        deletingNoteId,
+        setDeletingNoteId,
       }}
     >
       {children}
