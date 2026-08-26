@@ -187,7 +187,7 @@ function NotesItem({
 
       {description && (
         <div className="relative mt-4 rounded-xl border border-white/[0.05] bg-black/20 p-3.5">
-          <p className="text-[12px] leading-6 text-slate-300">{displayText}</p>
+          <p className="whitespace-pre-wrap text-[12px] leading-6 text-slate-300">{displayText}</p>
         </div>
       )}
 

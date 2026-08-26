@@ -28,6 +28,10 @@ body{
   margin-block: 0.75rem;
 }
 
+.note-preview-markdown p {
+  white-space: pre-wrap;
+}
+
 .ai-markdown h1,
 .ai-markdown h2,
 .ai-markdown h3,

@@ -124,7 +124,7 @@ function NotePreviewCard({
                 <NoteImageView image={image} />
               </div>
             )}
-            <div className="ai-markdown break-words text-[15px] leading-9 text-slate-200 sm:text-[17px]">
+            <div className="ai-markdown note-preview-markdown break-words text-[15px] leading-9 text-slate-200 sm:text-[17px]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
