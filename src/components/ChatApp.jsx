@@ -4,26 +4,30 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import {
-  ArrowUp,
+  ArrowRight,
   Bot,
   Camera,
   Check,
   ChevronDown,
+  Code,
   Copy,
   Eye,
   EyeOff,
   FileText,
+  Globe,
   Image,
   KeyRound,
   LoaderCircle,
   Mic,
   NotebookPen,
+  Paperclip,
   PenLine,
-  Plus,
   ShieldCheck,
   Sparkles,
   Trash2,
+  Video,
   X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
@@ -303,6 +307,8 @@ export default function ChatApp() {
   const [editingMessageIndex, setEditingMessageIndex] = useState(null);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
   const [savedMessageIds, setSavedMessageIds] = useState([]);
+  const [fastMode, setFastMode] = useState(false);
+  const [activeTools, setActiveTools] = useState(() => new Set());
   const chatScrollRef = useRef(null);
   const shouldFollowStreamRef = useRef(true);
   const scrollFrameRef = useRef(null);
@@ -310,6 +316,7 @@ export default function ChatApp() {
   const imageInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const attachmentMenuRef = useRef(null);
   const speechRecognitionRef = useRef(null);
   const speechBaseInputRef = useRef("");
   const selectedProvider = getProviderByModel(selectedModel);
@@ -332,6 +339,27 @@ export default function ChatApp() {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [messageCount]);
+
+  useEffect(() => {
+    if (!isAttachmentMenuOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (
+        attachmentMenuRef.current &&
+        !attachmentMenuRef.current.contains(event.target)
+      ) {
+        setIsAttachmentMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [isAttachmentMenuOpen]);
 
   useEffect(
     () => () => {
@@ -441,6 +469,33 @@ export default function ChatApp() {
     setInput("");
     setAttachment(null);
     inputRef.current?.focus();
+  };
+
+  const toggleTool = (tool) => {
+    setActiveTools((current) => {
+      const next = new Set(current);
+      if (next.has(tool)) next.delete(tool);
+      else next.add(tool);
+      return next;
+    });
+  };
+
+  const autoResize = (element) => {
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 200)}px`;
+  };
+
+  const copyInput = async () => {
+    if (!input.trim()) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(input);
+      }
+      setError("");
+    } catch {
+      setError("متن کپی نشد. لطفاً دوباره تلاش کنید.");
+    }
   };
 
   const openApiKeyModal = () => {
@@ -1280,37 +1335,11 @@ export default function ChatApp() {
       </div>
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black to-transparent px-3 pb-4 pt-12 sm:px-8 sm:pb-6">
-        <form
-          onSubmit={handleSend}
-          className="relative mx-auto flex w-full max-w-3xl flex-col rounded-[28px] border border-white/[0.12] bg-[#181818] p-2 shadow-[0_18px_55px_rgba(0,0,0,0.65)] transition focus-within:border-white/25"
-        >
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(event) => handleAttachmentSelect(event, "image")}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(event) => handleAttachmentSelect(event, "image")}
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.txt,.md,.csv,.json,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.html,.xml,.js,.jsx,.ts,.tsx,.css,.py"
-            className="hidden"
-            onChange={(event) => handleAttachmentSelect(event, "file")}
-          />
-
+        <div className="mx-auto w-full max-w-3xl">
           {editingMessageIndex !== null && (
             <div
               dir="rtl"
-              className="mx-1 mb-1 flex items-center justify-between rounded-2xl border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-sm text-blue-100"
+              className="mb-2 flex items-center justify-between rounded-xl border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-sm text-blue-100"
             >
               <span className="flex items-center gap-2">
                 <PenLine size={15} className="text-blue-300" />
@@ -1329,24 +1358,24 @@ export default function ChatApp() {
           )}
 
           {attachment && (
-            <div className="mx-1 mb-1 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-2 pr-3">
+            <div className="mb-2 flex items-center gap-3 rounded-xl border border-white/10 bg-[#2c2b2b] p-2 pr-3">
               {attachment.kind === "image" ? (
                 <img
                   src={attachment.dataUrl}
                   alt={attachment.name}
-                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
                 />
               ) : (
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300">
-                  <FileText size={23} />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-300">
+                  <FileText size={20} />
                 </span>
               )}
 
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-white">
+                <span className="block truncate text-sm font-medium text-neutral-100">
                   {attachment.name}
                 </span>
-                <span className="block text-xs text-zinc-400">
+                <span className="block text-xs text-neutral-500">
                   {attachment.kind === "image" ? "Image" : "File"} ·{" "}
                   {formatFileSize(attachment.size)}
                 </span>
@@ -1356,69 +1385,50 @@ export default function ChatApp() {
                 type="button"
                 onClick={() => setAttachment(null)}
                 aria-label="Remove attachment"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-white/10 hover:text-white"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition hover:bg-white/10 hover:text-white"
               >
                 <X size={17} />
               </button>
             </div>
           )}
 
-          <div className="flex items-end gap-2 pl-1">
-            <div className="relative">
-              {isAttachmentMenuOpen && (
-                <div className="absolute bottom-12 left-0 z-20 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#202020] p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.65)]">
-                  <button
-                    type="button"
-                    onClick={() => imageInputRef.current?.click()}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
-                  >
-                    <Image size={18} className="text-fuchsia-300" />
-                    Upload image
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
-                  >
-                    <Camera size={18} className="text-emerald-300" />
-                    Take photo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-zinc-200 transition hover:bg-white/10"
-                  >
-                    <FileText size={18} className="text-blue-300" />
-                    Upload file
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsAttachmentMenuOpen((current) => !current)}
-                aria-label="Add an image or file"
-                aria-expanded={isAttachmentMenuOpen}
-                className={`mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
-                  isAttachmentMenuOpen
-                    ? "rotate-45 bg-white/10 text-white"
-                    : "text-zinc-300 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Plus size={21} strokeWidth={1.8} />
-              </button>
-            </div>
+          <div className="relative bg-[#232222] border border-neutral-800 rounded-2xl p-4 shadow-lg">
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => handleAttachmentSelect(event, "image")}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => handleAttachmentSelect(event, "image")}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md,.csv,.json,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.html,.xml,.js,.jsx,.ts,.tsx,.css,.py"
+              className="hidden"
+              onChange={(event) => handleAttachmentSelect(event, "file")}
+            />
 
             <textarea
               ref={inputRef}
               rows={1}
               dir="auto"
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => {
+                setInput(event.target.value);
+                autoResize(event.target);
+              }}
               onKeyDown={(event) => {
-                const isDesktopInput =
-                  window.matchMedia("(hover: hover) and (pointer: fine)")
-                    .matches;
+                const isDesktopInput = window.matchMedia(
+                  "(hover: hover) and (pointer: fine)",
+                ).matches;
 
                 if (
                   event.key === "Enter" &&
@@ -1431,57 +1441,193 @@ export default function ChatApp() {
                 }
               }}
               enterKeyHint="enter"
-              placeholder={isListening ? "در حال گوش دادن..." : "Message AI"}
+              placeholder={isListening ? "در حال گوش دادن..." : "Ask anything..."}
               aria-label="Message AI"
-              className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2 text-start text-[16px] leading-6 text-white outline-none placeholder:text-zinc-500"
+              className="block w-full resize-none bg-transparent text-[15px] leading-relaxed text-neutral-200 outline-none placeholder:text-neutral-500"
             />
 
-            <button
-              type="button"
-              onClick={toggleVoiceRecording}
-              disabled={isLoading}
-              aria-label={
-                isListening ? "توقف تبدیل گفتار به متن" : "شروع تبدیل گفتار به متن"
-              }
-              aria-pressed={isListening}
-              title={
-                isListening ? "توقف ضبط صدا" : "تبدیل گفتار به متن"
-              }
-              className={`relative mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                isListening
-                  ? "bg-red-500/15 text-red-300 shadow-[0_0_0_1px_rgba(248,113,113,0.22)]"
-                  : "text-zinc-300 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {isListening && (
-                <span className="absolute inset-0 animate-ping rounded-full border border-red-400/35" />
-              )}
-              <Mic size={20} strokeWidth={1.8} />
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="relative shrink-0" ref={attachmentMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsAttachmentMenuOpen((current) => !current)
+                    }
+                    aria-label="Add files"
+                    aria-expanded={isAttachmentMenuOpen}
+                    className="flex shrink-0 items-center gap-1.5 bg-neutral-800/80 border border-neutral-700/60 px-3 py-1.5 rounded-lg text-sm text-neutral-300 hover:bg-neutral-700 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    <span className="hidden sm:inline">Add files</span>
+                  </button>
 
-            <button
-              type="submit"
-              disabled={(!input.trim() && !attachment) || isLoading}
-              aria-label="Send message"
-              className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#093cc8] text-white  transition hover:bg-[#3b7cff] disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:shadow-none"
-            >
-              {isLoading ? (
-                <LoaderCircle size={19} className="animate-spin" />
-              ) : (
-                <ArrowUp size={20} strokeWidth={2.4} />
-              )}
-            </button>
+                  {isAttachmentMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-2 z-20 w-48 overflow-hidden rounded-2xl border border-neutral-700 bg-[#202020] p-1.5 shadow-[0_18px_45px_rgba(0,0,0,0.65)]">
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-neutral-200 transition hover:bg-white/10"
+                      >
+                        <Image size={18} className="text-fuchsia-300" />
+                        Upload image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cameraInputRef.current?.click()}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-neutral-200 transition hover:bg-white/10"
+                      >
+                        <Camera size={18} className="text-emerald-300" />
+                        Take photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-neutral-200 transition hover:bg-white/10"
+                      >
+                        <FileText size={18} className="text-blue-300" />
+                        Upload file
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 overflow-x-auto min-w-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    title="Fast mode"
+                    aria-label="Fast mode"
+                    aria-pressed={fastMode}
+                    onClick={() => setFastMode((value) => !value)}
+                    className={`relative flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 ${
+                      fastMode ? "bg-neutral-800 text-neutral-100" : ""
+                    }`}
+                  >
+                    <Zap className="h-4 w-4" />
+                    <span className="absolute -top-1 -right-1 text-[9px] font-semibold bg-neutral-700 text-neutral-200 rounded px-1 leading-tight">
+                      A
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Code execution"
+                    aria-label="Code execution"
+                    aria-pressed={activeTools.has("code")}
+                    onClick={() => toggleTool("code")}
+                    className={`flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 ${
+                      activeTools.has("code") ? "bg-neutral-800 text-neutral-100" : ""
+                    }`}
+                  >
+                    <Code className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Web search"
+                    aria-label="Web search"
+                    aria-pressed={activeTools.has("web")}
+                    onClick={() => toggleTool("web")}
+                    className={`flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 ${
+                      activeTools.has("web") ? "bg-neutral-800 text-neutral-100" : ""
+                    }`}
+                  >
+                    <Globe className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Image generation"
+                    aria-label="Image generation"
+                    aria-pressed={activeTools.has("image")}
+                    onClick={() => {
+                      toggleTool("image");
+                      imageInputRef.current?.click();
+                    }}
+                    className={`flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 ${
+                      activeTools.has("image") ? "bg-neutral-800 text-neutral-100" : ""
+                    }`}
+                  >
+                    <Image className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Video generation"
+                    aria-label="Video generation"
+                    aria-pressed={activeTools.has("video")}
+                    onClick={() => toggleTool("video")}
+                    className={`flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 ${
+                      activeTools.has("video") ? "bg-neutral-800 text-neutral-100" : ""
+                    }`}
+                  >
+                    <Video className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    title={isListening ? "توقف ضبط صدا" : "تبدیل گفتار به متن"}
+                    aria-label={
+                      isListening
+                        ? "توقف تبدیل گفتار به متن"
+                        : "شروع تبدیل گفتار به متن"
+                    }
+                    aria-pressed={isListening}
+                    onClick={toggleVoiceRecording}
+                    disabled={isLoading}
+                    className={`relative flex items-center justify-center h-9 w-9 rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed ${
+                      isListening
+                        ? "bg-red-500/15 text-red-300"
+                        : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800"
+                    }`}
+                  >
+                    {isListening && (
+                      <span className="absolute inset-0 animate-ping rounded-lg border border-red-400/35" />
+                    )}
+                    <Mic className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  title="Copy"
+                  aria-label="Copy"
+                  onClick={copyInput}
+                  disabled={!input.trim()}
+                  className="flex items-center justify-center h-9 w-9 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+
+                <button
+                  type="button"
+                  title="Send"
+                  aria-label="Send message"
+                  onClick={handleSend}
+                  disabled={(!input.trim() && !attachment) || isLoading}
+                  className="flex items-center justify-center h-9 w-9 rounded-xl bg-neutral-200 text-neutral-900 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                >
+                  {isLoading ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-        </form>
 
-        {error && (
-          <p
-            role="alert"
-            className="mx-auto mt-2 max-w-3xl px-4 text-center text-xs text-red-400"
-          >
-            {error}
-          </p>
-        )}
+          {error && (
+            <p
+              role="alert"
+              className="mt-2 px-4 text-center text-xs text-red-400"
+            >
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
