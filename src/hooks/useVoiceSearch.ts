@@ -67,22 +67,6 @@ export interface UseVoiceSearchReturn {
 const DEFAULT_SILENCE_TIMEOUT = 3000;
 const DEFAULT_NO_SPEECH_TIMEOUT = 8000;
 
-function stripOverlapPrefix(finalText: string, interim: string): string {
-  const finalWords = finalText.trim().split(/\s+/).filter(Boolean);
-  const interimWords = interim.trim().split(/\s+/).filter(Boolean);
-
-  let overlap = 0;
-  while (
-    overlap < finalWords.length &&
-    overlap < interimWords.length &&
-    finalWords[finalWords.length - 1 - overlap] === interimWords[overlap]
-  ) {
-    overlap += 1;
-  }
-
-  return interimWords.slice(overlap).join(" ");
-}
-
 export function useVoiceSearch({
   lang = "fa-IR",
   silenceTimeout = DEFAULT_SILENCE_TIMEOUT,
@@ -93,8 +77,6 @@ export function useVoiceSearch({
   onError,
 }: UseVoiceSearchOptions): UseVoiceSearchReturn {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const committedTextRef = useRef("");
-  const lastResultsLengthRef = useRef(0);
   const silenceTimerRef = useRef<number | null>(null);
   const noSpeechTimerRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
@@ -123,8 +105,10 @@ export function useVoiceSearch({
 
     const recognition = new SpeechRecognitionClass();
 
+    // سیستم مرجع: هر «بگویید» یک session مستقل و غیرپیوسته است.
+    // در نتیجهٔ نهایی هیچ سشن تکراری وجود ندارد.
     recognition.lang = lang;
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
@@ -178,20 +162,12 @@ export function useVoiceSearch({
       clearNoSpeechTimer();
 
       const results = event.results;
-      const resultsLength = results?.length ?? 0;
+      if (!results || results.length === 0) return;
 
-      const isRestart =
-        (event.resultIndex ?? 0) === 0 && resultsLength < lastResultsLengthRef.current;
-
-      let baseText = isRestart ? committedTextRef.current : "";
       const finalParts: string[] = [];
-      let interim = "";
+      let interimPart = "";
 
-      for (
-        let index = Math.max(0, isRestart ? 0 : event.resultIndex ?? 0);
-        index < (results?.length ?? 0);
-        index += 1
-      ) {
+      for (let index = 0; index < (results?.length ?? 0); index += 1) {
         const slot = results?.[index];
         if (!slot) continue;
         const chunk = slot[0]?.transcript?.trim();
@@ -199,30 +175,19 @@ export function useVoiceSearch({
 
         if (slot.isFinal) {
           finalParts.push(chunk);
-        } else if (!interim) {
-          interim = chunk;
+        } else if (!interimPart) {
+          interimPart = chunk;
         }
       }
 
       const finalText = finalParts.join(" ");
-      if (isRestart && baseText) {
-        committedTextRef.current = [baseText, finalText].filter(Boolean).join(" ");
-      } else if (!isRestart && finalText) {
-        committedTextRef.current = [committedTextRef.current, finalText]
-          .filter(Boolean)
-          .join(" ");
-      }
-      lastResultsLengthRef.current = resultsLength;
-
-      const interimRest = stripOverlapPrefix(committedTextRef.current, interim);
-      const liveText = [committedTextRef.current, interimRest]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
+      const liveText = [finalText, interimPart].filter(Boolean).join(" ").trim();
 
       if (liveText) {
         onTranscriptRef.current?.(liveText);
-        onResultRef.current?.(committedTextRef.current);
+      }
+      if (finalText) {
+        onResultRef.current?.(finalText);
         scheduleSilenceStop(silenceTimeout);
       }
     };
@@ -257,8 +222,6 @@ export function useVoiceSearch({
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || isListeningRef.current) return;
-    committedTextRef.current = "";
-    lastResultsLengthRef.current = 0;
     try {
       recognitionRef.current.start();
     } catch {
