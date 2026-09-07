@@ -32,6 +32,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
 import { useNotes } from "../hooks/useNotes";
+import { useAIChat } from "../contexts/AIChatContext";
 
 const ENV_API_KEY = import.meta.env.VITE_GAPGPT_API_KEY?.trim() ?? "";
 const API_KEY_STORAGE = "notes-ai-api-key";
@@ -284,6 +285,7 @@ function AssistantMessage({ content }) {
 
 export default function ChatApp() {
   const { setNotes } = useNotes();
+  const { consumePendingMessage } = useAIChat();
   const [apiKey, setApiKey] = useState(getInitialApiKey);
   const [apiKeyDraft, setApiKeyDraft] = useState(getInitialApiKey);
   const [rememberApiKey, setRememberApiKey] = useState(
@@ -834,6 +836,32 @@ export default function ChatApp() {
       setIsLoading(false);
     }
   };
+
+  const autoSendMessageRef = useRef(null);
+  const autoSendTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    const incoming = consumePendingMessage();
+    if (!incoming) return;
+
+    autoSendMessageRef.current = incoming;
+    autoSendTriggeredRef.current = false;
+    setInput(incoming);
+    setError("");
+  }, [consumePendingMessage]);
+
+  useEffect(() => {
+    if (
+      autoSendMessageRef.current &&
+      !autoSendTriggeredRef.current &&
+      input === autoSendMessageRef.current
+    ) {
+      autoSendTriggeredRef.current = true;
+      const message = autoSendMessageRef.current;
+      autoSendMessageRef.current = null;
+      handleSend();
+    }
+  }, [input]);
 
   return (
     <div

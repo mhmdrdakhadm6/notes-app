@@ -17,6 +17,7 @@ import NotePreview from "./NotePreview";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import type { NotesType } from "../types/nots";
 import { toLocalDateOnly } from "../utils/date";
+import { useAIChat } from "../contexts/AIChatContext";
 import ChatApp from "./ChatApp.jsx";
 
 const isExpiredNote = (note: NotesType, today: Date) => {
@@ -36,10 +37,23 @@ const isExpiredNote = (note: NotesType, today: Date) => {
 
 export default function Notes() {
   const { setIsOpen, notes, setNotes } = useNotes();
+  const { pendingMessage, aiActiveAt } = useAIChat();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"today" | "all" | "ai">("today");
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+
+  useEffect(() => {
+    aiActiveAt(filterMode === "ai");
+  }, [filterMode, aiActiveAt]);
+
+  useEffect(() => {
+    if (pendingMessage) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFilterMode("ai");
+    }
+  }, [pendingMessage]);
+
 
   useEffect(() => {
     const removeExpiredNotes = () => {

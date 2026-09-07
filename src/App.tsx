@@ -2,16 +2,19 @@ import Notes from "./components/Notes";
 import AIVoiceNoteModal from "./components/AIVoiceNoteModal";
 import "./App.css";
 import { NotesProvider } from "./contexts/NotesContexts";
+import { AIChatProvider } from "./contexts/AIChatContext";
 import { Toaster } from "react-hot-toast";
 
 function App() {
   return (
     <>
       <NotesProvider>
-        <div className="min-h-screen bg-black px-4 py-10 sm:px-6">
-          <Notes />
-          <AIVoiceNoteModal />
-        </div>
+        <AIChatProvider>
+          <div className="min-h-screen bg-black px-4 py-10 sm:px-6">
+            <Notes />
+            <AIVoiceNoteModal />
+          </div>
+        </AIChatProvider>
         <Toaster
           position="top-center"
           reverseOrder={false}

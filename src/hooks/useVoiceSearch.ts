@@ -49,6 +49,8 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
 
 export interface UseVoiceSearchOptions {
   lang?: string;
+  silenceTimeout?: number;
+  noSpeechTimeout?: number;
   onResult?: (text: string) => void;
   onTranscript?: (text: string) => void;
   onEnd?: () => void;
@@ -62,8 +64,13 @@ export interface UseVoiceSearchReturn {
   stopListening: () => void;
 }
 
+const DEFAULT_SILENCE_TIMEOUT = 3000;
+const DEFAULT_NO_SPEECH_TIMEOUT = 10000;
+
 export function useVoiceSearch({
   lang = "fa-IR",
+  silenceTimeout = DEFAULT_SILENCE_TIMEOUT,
+  noSpeechTimeout = DEFAULT_NO_SPEECH_TIMEOUT,
   onResult,
   onTranscript,
   onEnd,
@@ -71,6 +78,8 @@ export function useVoiceSearch({
 }: UseVoiceSearchOptions): UseVoiceSearchReturn {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const finalizedChunksRef = useRef("");
+  const lastFinalizedIndexRef = useRef(-1);
+  const silenceTimerRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const [isListening, setIsListening] = useState(false);
 
@@ -98,13 +107,32 @@ export function useVoiceSearch({
     const recognition = new SpeechRecognitionClass();
 
     recognition.lang = lang;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
+
+    const clearSilenceTimer = () => {
+      if (silenceTimerRef.current !== null) {
+        window.clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    };
+
+    const scheduleStopTimer = (millis: number) => {
+      clearSilenceTimer();
+      silenceTimerRef.current = window.setTimeout(() => {
+        try {
+          recognition.stop();
+        } catch {
+          /* empty */
+        }
+      }, millis);
+    };
 
     recognition.onstart = () => {
       isListeningRef.current = true;
       setIsListening(true);
+      scheduleStopTimer(noSpeechTimeout);
     };
 
     recognition.onresult = (event) => {
@@ -119,9 +147,12 @@ export function useVoiceSearch({
         if (!chunk) continue;
 
         if (slot.isFinal) {
-          finalizedChunksRef.current += finalizedChunksRef.current
-            ? ` ${chunk}`
-            : chunk;
+          if (index >= lastFinalizedIndexRef.current) {
+            finalizedChunksRef.current += finalizedChunksRef.current
+              ? ` ${chunk}`
+              : chunk;
+            lastFinalizedIndexRef.current = index + 1;
+          }
         } else {
           interimParts.push(chunk);
         }
@@ -133,6 +164,7 @@ export function useVoiceSearch({
         .trim();
 
       onTranscriptRef.current?.(liveText);
+      scheduleStopTimer(silenceTimeout);
     };
 
     recognition.onerror = (event) => {
@@ -142,6 +174,7 @@ export function useVoiceSearch({
     };
 
     recognition.onend = () => {
+      clearSilenceTimer();
       isListeningRef.current = false;
       setIsListening(false);
       onResultRef.current?.(finalizedChunksRef.current);
@@ -151,6 +184,7 @@ export function useVoiceSearch({
     recognitionRef.current = recognition;
 
     return () => {
+      clearSilenceTimer();
       try {
         recognition.abort();
       } catch {
@@ -160,11 +194,12 @@ export function useVoiceSearch({
         recognitionRef.current = null;
       }
     };
-  }, [lang, isSupported]);
+  }, [lang, isSupported, silenceTimeout, noSpeechTimeout]);
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || isListeningRef.current) return;
     finalizedChunksRef.current = "";
+    lastFinalizedIndexRef.current = -1;
     try {
       recognitionRef.current.start();
     } catch {

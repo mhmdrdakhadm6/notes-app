@@ -3,9 +3,17 @@ import { Bot, Languages, Mic, MicOff, Sparkles, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNotes } from "../hooks/useNotes";
 import { useVoiceSearch } from "../hooks/useVoiceSearch";
+import { useAIChat } from "../contexts/AIChatContext";
+import {
+  applyLineBreaks,
+  findBestNoteMatch,
+  parseAIMessageCommand,
+  parseDeleteCommand,
+  parseSayCommand,
+} from "../utils/noteMatch";
 
 const MAX_TITLE_LENGTH = 20;
-const NO_SPEECH_TIMEOUT = 10000;
+const SILENCE_TIMEOUT = 3000;
 
 const LANGUAGES = [
   { value: "fa-IR", label: "فارسی" },
@@ -21,7 +29,8 @@ function buildNoteTitle(text: string): string {
 }
 
 export default function AIVoiceNoteModal() {
-  const { setNotes } = useNotes();
+  const { setNotes, notes, handelDelete } = useNotes();
+  const { sendToAI } = useAIChat();
   const [isOpen, setIsOpen] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
@@ -29,26 +38,16 @@ export default function AIVoiceNoteModal() {
 
   const finalTextRef = useRef("");
   const cancelRef = useRef(false);
-  const isListeningRef = useRef(false);
-  const noSpeechTimerRef = useRef<number | null>(null);
-
-  const clearNoSpeechTimer = () => {
-    if (noSpeechTimerRef.current !== null) {
-      window.clearTimeout(noSpeechTimerRef.current);
-      noSpeechTimerRef.current = null;
-    }
-  };
 
   const resetAndClose = () => {
     finalTextRef.current = "";
-    clearNoSpeechTimer();
     setTranscript("");
     setError("");
     setIsOpen(false);
   };
 
   const addNoteAndClose = (spokenText: string) => {
-    const description = spokenText.trim();
+    const description = applyLineBreaks(spokenText);
     if (!description) return;
 
     setNotes((currentNotes) => [
@@ -70,6 +69,29 @@ export default function AIVoiceNoteModal() {
     resetAndClose();
   };
 
+  const handleVoiceDelete = (spokenTitle: string) => {
+    if (!spokenTitle.trim()) {
+      setError(
+        "لطفاً نام یادداشت را هم بگویید؛ سپس عبارت «حذف از یادداشت‌ها» را بگویید.",
+      );
+      return;
+    }
+
+    const matchedNote = findBestNoteMatch(notes, spokenTitle);
+
+    if (!matchedNote) {
+      setError(`یادداشتی با عنوان «${spokenTitle}» پیدا نشد. دوباره تلاش کنید.`);
+      toast.error("یادداشت‌ای با این عنوان پیدا نشد");
+      return;
+    }
+
+    handelDelete(matchedNote.id);
+    toast.success(`یادداشت «${matchedNote.title}» حذف شد`, {
+      duration: 2600,
+    });
+    resetAndClose();
+  };
+
   const {
     isListening,
     isSupported,
@@ -77,6 +99,7 @@ export default function AIVoiceNoteModal() {
     stopListening,
   } = useVoiceSearch({
     lang: selectedLang,
+    silenceTimeout: SILENCE_TIMEOUT,
     onTranscript: (text) => {
       setTranscript(text);
     },
@@ -84,17 +107,43 @@ export default function AIVoiceNoteModal() {
       finalTextRef.current = text;
     },
     onEnd: () => {
-      clearNoSpeechTimer();
       if (cancelRef.current) {
         cancelRef.current = false;
         return;
       }
       const spokenText = finalTextRef.current.trim();
-      if (spokenText) {
-        addNoteAndClose(spokenText);
-      } else {
+      if (!spokenText) {
         setError("صدایی شنیده نشد. دوباره تلاش کنید.");
+        return;
       }
+
+      const aiMessage = parseAIMessageCommand(spokenText);
+      if (aiMessage.isAIMessage) {
+        if (!aiMessage.message.trim()) {
+          setError(
+            "لطفاً متن پیام را هم بگویید؛ سپس عبارت «پیام به AI» را بگویید.",
+          );
+          return;
+        }
+        sendToAI(aiMessage.message);
+        resetAndClose();
+        return;
+      }
+
+      const sayCommand = parseSayCommand(spokenText);
+      if (sayCommand.isSay) {
+        sendToAI(sayCommand.message);
+        resetAndClose();
+        return;
+      }
+
+      const deleteCommand = parseDeleteCommand(spokenText);
+      if (deleteCommand.isDelete) {
+        handleVoiceDelete(deleteCommand.spokenTitle);
+        return;
+      }
+
+      addNoteAndClose(spokenText);
     },
     onError: (code) => {
       if (code === "not-allowed") {
@@ -109,10 +158,6 @@ export default function AIVoiceNoteModal() {
     },
   });
 
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
-
   const handleStartListening = () => {
     if (!isSupported) {
       setError(
@@ -125,20 +170,12 @@ export default function AIVoiceNoteModal() {
     finalTextRef.current = "";
     setTranscript("");
     setError("");
-    clearNoSpeechTimer();
 
     startListening();
-
-    noSpeechTimerRef.current = window.setTimeout(() => {
-      if (isListeningRef.current && !finalTextRef.current.trim()) {
-        stopListening();
-      }
-    }, NO_SPEECH_TIMEOUT);
   };
 
   const handleCancel = () => {
     cancelRef.current = true;
-    clearNoSpeechTimer();
     stopListening();
     resetAndClose();
   };
@@ -150,7 +187,6 @@ export default function AIVoiceNoteModal() {
 
     return () => {
       window.clearTimeout(openTimer);
-      clearNoSpeechTimer();
       cancelRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,7 +229,7 @@ export default function AIVoiceNoteModal() {
                     یادداشت صوتی هوشمند
                   </h2>
                   <p className="text-[11px] text-slate-400">
-                    صحبت کنید، به نوت تبدیل می‌شود
+                    برای حذف: «... حذف از یادداشت‌ها» · برای AI: «... پیام به AI» · خط جدید: «بعدی»
                   </p>
                 </div>
               </div>
@@ -312,9 +348,9 @@ export default function AIVoiceNoteModal() {
                 </button>
               </div>
 
-              <p className="flex items-center justify-center gap-1.5 text-center text-[10px] text-slate-500">
+              <p className="flex items-center justify-center gap-1.5 text-center text-[10px] leading-5 text-slate-500">
                 <Bot size={12} className="text-[#093cc8]" />
-                عنوان از ۲۰ کاراکتر اول متن ساخته می‌شود
+                «... پیام به AI» ارسال به AI · «... حذف از یادداشت‌ها» حذف نوت · «بعدی» خط جدید
               </p>
             </div>
           </section>
