@@ -90,6 +90,10 @@ function Footer() {
             یادداشت جدید
           </button>
 
+          <span className="inline-flex h-12 shrink-0 items-center rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 text-xs font-semibold text-slate-400" dir="ltr">
+            version 1.6
+          </span>
+
           <button
             type="button"
             onClick={scrollToTop}
