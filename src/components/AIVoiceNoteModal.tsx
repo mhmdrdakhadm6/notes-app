@@ -7,8 +7,19 @@ const MAX_TITLE_LENGTH = 20;
 const SILENCE_OVER_TIMEOUT = 2400;
 const NO_SPEECH_TIMEOUT = 10000;
 
+interface SpeechRecognitionAlternativeLike {
+  transcript?: string | undefined;
+}
+
+interface SpeechRecognitionResultLike {
+  readonly [index: number]: SpeechRecognitionAlternativeLike | undefined;
+  readonly isFinal?: boolean;
+  readonly length: number;
+}
+
 interface SpeechRecognitionEventLike {
-  results?: ArrayLike<ArrayLike<{ transcript?: string | undefined } | undefined>>;
+  resultIndex?: number;
+  results?: ArrayLike<SpeechRecognitionResultLike>;
 }
 
 interface SpeechRecognitionErrorEventLike {
@@ -57,6 +68,7 @@ export default function AIVoiceNoteModal() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const silenceTimerRef = useRef<number | null>(null);
   const transcriptRef = useRef("");
+  const finalizedTextRef = useRef("");
   const saveOnStopRef = useRef(false);
   const isMountedRef = useRef(true);
 
@@ -78,6 +90,7 @@ export default function AIVoiceNoteModal() {
 
   const resetAndClose = () => {
     transcriptRef.current = "";
+    finalizedTextRef.current = "";
     saveOnStopRef.current = false;
     recognitionRef.current = null;
     setIsListening(false);
@@ -132,6 +145,7 @@ export default function AIVoiceNoteModal() {
 
     clearSilenceTimer();
     transcriptRef.current = "";
+    finalizedTextRef.current = "";
     saveOnStopRef.current = true;
     setTranscript("");
     setError("");
@@ -150,22 +164,34 @@ export default function AIVoiceNoteModal() {
     recognition.onresult = (event) => {
       if (!isMountedRef.current) return;
 
-      let result = "";
-      const resultsLength = event.results?.length ?? 0;
-      for (let index = 0; index < resultsLength; index += 1) {
-        const alternative = event.results?.[index]?.[0];
-        if (alternative?.transcript) {
-          result += alternative.transcript;
+      const results = event.results ?? [];
+      const resultIndex = Math.max(0, event.resultIndex ?? 0);
+
+      let interim = "";
+      for (let index = resultIndex; index < results.length; index += 1) {
+        const alternative = results[index]?.[0];
+        const resultText = alternative?.transcript?.trim();
+        if (!resultText) continue;
+
+        if (results[index].isFinal) {
+          const separator = finalizedTextRef.current ? " " : "";
+          finalizedTextRef.current += separator + resultText;
+        } else {
+          interim += resultText;
         }
       }
-      result = result.trim();
 
-      transcriptRef.current = result;
-      setTranscript(result);
+      const displayText = [finalizedTextRef.current, interim]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      transcriptRef.current = displayText;
+      setTranscript(displayText);
 
       clearSilenceTimer();
 
-      if (result) {
+      if (displayText) {
         silenceTimerRef.current = window.setTimeout(() => {
           if (transcriptRef.current.trim()) {
             stopRecognition();
