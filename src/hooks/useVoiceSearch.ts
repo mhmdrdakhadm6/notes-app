@@ -65,7 +65,23 @@ export interface UseVoiceSearchReturn {
 }
 
 const DEFAULT_SILENCE_TIMEOUT = 3000;
-const DEFAULT_NO_SPEECH_TIMEOUT = 10000;
+const DEFAULT_NO_SPEECH_TIMEOUT = 8000;
+
+function stripOverlapPrefix(finalText: string, interim: string): string {
+  const finalWords = finalText.trim().split(/\s+/).filter(Boolean);
+  const interimWords = interim.trim().split(/\s+/).filter(Boolean);
+
+  let overlap = 0;
+  while (
+    overlap < finalWords.length &&
+    overlap < interimWords.length &&
+    finalWords[finalWords.length - 1 - overlap] === interimWords[overlap]
+  ) {
+    overlap += 1;
+  }
+
+  return interimWords.slice(overlap).join(" ");
+}
 
 export function useVoiceSearch({
   lang = "fa-IR",
@@ -77,9 +93,10 @@ export function useVoiceSearch({
   onError,
 }: UseVoiceSearchOptions): UseVoiceSearchReturn {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const finalizedChunksRef = useRef("");
-  const lastFinalizedIndexRef = useRef(-1);
+  const committedTextRef = useRef("");
+  const lastResultsLengthRef = useRef(0);
   const silenceTimerRef = useRef<number | null>(null);
+  const noSpeechTimerRef = useRef<number | null>(null);
   const isListeningRef = useRef(false);
   const [isListening, setIsListening] = useState(false);
 
@@ -118,9 +135,22 @@ export function useVoiceSearch({
       }
     };
 
-    const scheduleStopTimer = (millis: number) => {
+    const clearNoSpeechTimer = () => {
+      if (noSpeechTimerRef.current !== null) {
+        window.clearTimeout(noSpeechTimerRef.current);
+        noSpeechTimerRef.current = null;
+      }
+    };
+
+    const clearAllTimers = () => {
+      clearSilenceTimer();
+      clearNoSpeechTimer();
+    };
+
+    const scheduleSilenceStop = (millis: number) => {
       clearSilenceTimer();
       silenceTimerRef.current = window.setTimeout(() => {
+        if (!isListeningRef.current) return;
         try {
           recognition.stop();
         } catch {
@@ -132,39 +162,69 @@ export function useVoiceSearch({
     recognition.onstart = () => {
       isListeningRef.current = true;
       setIsListening(true);
-      scheduleStopTimer(noSpeechTimeout);
+
+      clearNoSpeechTimer();
+      noSpeechTimerRef.current = window.setTimeout(() => {
+        if (!isListeningRef.current) return;
+        try {
+          recognition.stop();
+        } catch {
+          /* empty */
+        }
+      }, noSpeechTimeout);
     };
 
     recognition.onresult = (event) => {
-      const results = event.results;
-      const startIndex = Math.max(0, event.resultIndex ?? 0);
-      const interimParts: string[] = [];
+      clearNoSpeechTimer();
 
-      for (let index = startIndex; index < (results?.length ?? 0); index += 1) {
+      const results = event.results;
+      const resultsLength = results?.length ?? 0;
+
+      const isRestart =
+        (event.resultIndex ?? 0) === 0 && resultsLength < lastResultsLengthRef.current;
+
+      let baseText = isRestart ? committedTextRef.current : "";
+      const finalParts: string[] = [];
+      let interim = "";
+
+      for (
+        let index = Math.max(0, isRestart ? 0 : event.resultIndex ?? 0);
+        index < (results?.length ?? 0);
+        index += 1
+      ) {
         const slot = results?.[index];
         if (!slot) continue;
         const chunk = slot[0]?.transcript?.trim();
         if (!chunk) continue;
 
         if (slot.isFinal) {
-          if (index >= lastFinalizedIndexRef.current) {
-            finalizedChunksRef.current += finalizedChunksRef.current
-              ? ` ${chunk}`
-              : chunk;
-            lastFinalizedIndexRef.current = index + 1;
-          }
-        } else {
-          interimParts.push(chunk);
+          finalParts.push(chunk);
+        } else if (!interim) {
+          interim = chunk;
         }
       }
 
-      const liveText = [finalizedChunksRef.current, interimParts.join(" ")]
+      const finalText = finalParts.join(" ");
+      if (isRestart && baseText) {
+        committedTextRef.current = [baseText, finalText].filter(Boolean).join(" ");
+      } else if (!isRestart && finalText) {
+        committedTextRef.current = [committedTextRef.current, finalText]
+          .filter(Boolean)
+          .join(" ");
+      }
+      lastResultsLengthRef.current = resultsLength;
+
+      const interimRest = stripOverlapPrefix(committedTextRef.current, interim);
+      const liveText = [committedTextRef.current, interimRest]
         .filter(Boolean)
         .join(" ")
         .trim();
 
-      onTranscriptRef.current?.(liveText);
-      scheduleStopTimer(silenceTimeout);
+      if (liveText) {
+        onTranscriptRef.current?.(liveText);
+        onResultRef.current?.(committedTextRef.current);
+        scheduleSilenceStop(silenceTimeout);
+      }
     };
 
     recognition.onerror = (event) => {
@@ -174,17 +234,16 @@ export function useVoiceSearch({
     };
 
     recognition.onend = () => {
-      clearSilenceTimer();
+      clearAllTimers();
       isListeningRef.current = false;
       setIsListening(false);
-      onResultRef.current?.(finalizedChunksRef.current);
       onEndRef.current?.();
     };
 
     recognitionRef.current = recognition;
 
     return () => {
-      clearSilenceTimer();
+      clearAllTimers();
       try {
         recognition.abort();
       } catch {
@@ -198,8 +257,8 @@ export function useVoiceSearch({
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || isListeningRef.current) return;
-    finalizedChunksRef.current = "";
-    lastFinalizedIndexRef.current = -1;
+    committedTextRef.current = "";
+    lastResultsLengthRef.current = 0;
     try {
       recognitionRef.current.start();
     } catch {
