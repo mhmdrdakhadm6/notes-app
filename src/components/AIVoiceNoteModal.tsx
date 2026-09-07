@@ -1,54 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, Mic, MicOff, Sparkles, X } from "lucide-react";
+import { Bot, Languages, Mic, MicOff, Sparkles, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNotes } from "../hooks/useNotes";
+import { useVoiceSearch } from "../hooks/useVoiceSearch";
 
 const MAX_TITLE_LENGTH = 20;
-const SILENCE_OVER_TIMEOUT = 2400;
 const NO_SPEECH_TIMEOUT = 10000;
 
-interface SpeechRecognitionAlternativeLike {
-  transcript?: string | undefined;
-}
-
-interface SpeechRecognitionResultLike {
-  readonly [index: number]: SpeechRecognitionAlternativeLike | undefined;
-  readonly isFinal?: boolean;
-  readonly length: number;
-}
-
-interface SpeechRecognitionEventLike {
-  resultIndex?: number;
-  results?: ArrayLike<SpeechRecognitionResultLike>;
-}
-
-interface SpeechRecognitionErrorEventLike {
-  error?: string;
-}
-
-interface SpeechRecognitionLike {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onstart: (() => void) | null;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-}
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
-
-function getSpeechRecognition(): SpeechRecognitionConstructor | null {
-  const browserWindow = window as unknown as {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-  return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition ?? null;
-}
+const LANGUAGES = [
+  { value: "fa-IR", label: "فارسی" },
+  { value: "en-US", label: "English" },
+];
 
 function buildNoteTitle(text: string): string {
   const normalized = text.trim().replace(/\s+/g, " ");
@@ -61,39 +23,25 @@ function buildNoteTitle(text: string): string {
 export default function AIVoiceNoteModal() {
   const { setNotes } = useNotes();
   const [isOpen, setIsOpen] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
+  const [selectedLang, setSelectedLang] = useState("fa-IR");
 
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const silenceTimerRef = useRef<number | null>(null);
-  const transcriptRef = useRef("");
-  const finalizedTextRef = useRef("");
-  const saveOnStopRef = useRef(false);
-  const isMountedRef = useRef(true);
+  const finalTextRef = useRef("");
+  const cancelRef = useRef(false);
+  const isListeningRef = useRef(false);
+  const noSpeechTimerRef = useRef<number | null>(null);
 
-  const clearSilenceTimer = () => {
-    if (silenceTimerRef.current !== null) {
-      window.clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-  };
-
-  const stopRecognition = () => {
-    clearSilenceTimer();
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      /* empty */
+  const clearNoSpeechTimer = () => {
+    if (noSpeechTimerRef.current !== null) {
+      window.clearTimeout(noSpeechTimerRef.current);
+      noSpeechTimerRef.current = null;
     }
   };
 
   const resetAndClose = () => {
-    transcriptRef.current = "";
-    finalizedTextRef.current = "";
-    saveOnStopRef.current = false;
-    recognitionRef.current = null;
-    setIsListening(false);
+    finalTextRef.current = "";
+    clearNoSpeechTimer();
     setTranscript("");
     setError("");
     setIsOpen(false);
@@ -122,181 +70,91 @@ export default function AIVoiceNoteModal() {
     resetAndClose();
   };
 
-  const handleCancel = () => {
-    saveOnStopRef.current = false;
-    clearSilenceTimer();
-    try {
-      recognitionRef.current?.abort();
-    } catch {
-      /* empty */
-    }
-    resetAndClose();
-  };
+  const {
+    isListening,
+    isSupported,
+    startListening,
+    stopListening,
+  } = useVoiceSearch({
+    lang: selectedLang,
+    onTranscript: (text) => {
+      setTranscript(text);
+    },
+    onResult: (text) => {
+      finalTextRef.current = text;
+    },
+    onEnd: () => {
+      clearNoSpeechTimer();
+      if (cancelRef.current) {
+        cancelRef.current = false;
+        return;
+      }
+      const spokenText = finalTextRef.current.trim();
+      if (spokenText) {
+        addNoteAndClose(spokenText);
+      } else {
+        setError("صدایی شنیده نشد. دوباره تلاش کنید.");
+      }
+    },
+    onError: (code) => {
+      if (code === "not-allowed") {
+        setError(
+          "دسترسی میکروفون داده نشد. لطفاً اجازه استفاده از میکروفون را در تنظیمات مرورگر فعال کنید.",
+        );
+      } else if (code === "no-speech") {
+        setError("صدایی شنیده نشد. دوباره تلاش کنید.");
+      } else if (code !== "aborted") {
+        setError("تبدیل گفتار به متن متوقف شد. لطفاً دوباره تلاش کنید.");
+      }
+    },
+  });
 
-  const startListening = () => {
-    const SpeechRecognition = getSpeechRecognition();
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
-    if (!SpeechRecognition) {
+  const handleStartListening = () => {
+    if (!isSupported) {
       setError(
         "مرورگر شما تبدیل گفتار به متن را پشتیبانی نمی‌کند. لطفاً از Chrome یا Edge استفاده کنید.",
       );
       return;
     }
 
-    clearSilenceTimer();
-    transcriptRef.current = "";
-    finalizedTextRef.current = "";
-    saveOnStopRef.current = true;
+    cancelRef.current = false;
+    finalTextRef.current = "";
     setTranscript("");
     setError("");
+    clearNoSpeechTimer();
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "fa-IR";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    startListening();
 
-    recognition.onstart = () => {
-      if (!isMountedRef.current) return;
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event) => {
-      if (!isMountedRef.current) return;
-
-      const results = event.results ?? [];
-      const resultIndex = Math.max(0, event.resultIndex ?? 0);
-
-      let interim = "";
-      for (let index = resultIndex; index < results.length; index += 1) {
-        const alternative = results[index]?.[0];
-        const resultText = alternative?.transcript?.trim();
-        if (!resultText) continue;
-
-        if (results[index].isFinal) {
-          const separator = finalizedTextRef.current ? " " : "";
-          finalizedTextRef.current += separator + resultText;
-        } else {
-          interim += resultText;
-        }
-      }
-
-      const displayText = [finalizedTextRef.current, interim]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-
-      transcriptRef.current = displayText;
-      setTranscript(displayText);
-
-      clearSilenceTimer();
-
-      if (displayText) {
-        silenceTimerRef.current = window.setTimeout(() => {
-          if (transcriptRef.current.trim()) {
-            stopRecognition();
-          }
-        }, SILENCE_OVER_TIMEOUT);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      if (!isMountedRef.current) return;
-
-      if (event.error === "aborted") {
-        return;
-      }
-
-      if (event.error === "not-allowed") {
-        saveOnStopRef.current = false;
-        setError(
-          "دسترسی میکروفون داده نشد. لطفاً اجازه استفاده از میکروفون را در تنظیمات مرورگر فعال کنید.",
-        );
-        return;
-      }
-
-      if (event.error === "no-speech") {
-        saveOnStopRef.current = false;
-        setError("صدایی شنیده نشد. دوباره تلاش کنید.");
-        return;
-      }
-
-      saveOnStopRef.current = false;
-      setError("تبدیل گفتار به متن متوقف شد. لطفاً دوباره تلاش کنید.");
-    };
-
-    recognition.onend = () => {
-      if (!isMountedRef.current) return;
-
-      setIsListening(false);
-      clearSilenceTimer();
-
-      const spokenText = transcriptRef.current.trim();
-      if (saveOnStopRef.current) {
-        saveOnStopRef.current = false;
-        if (spokenText) {
-          addNoteAndClose(spokenText);
-          return;
-        }
-        setError("صدایی شنیده نشد. دوباره تلاش کنید.");
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    silenceTimerRef.current = window.setTimeout(() => {
-      if (!transcriptRef.current.trim()) {
-        saveOnStopRef.current = false;
-        setError("صدایی شنیده نشد. دوباره تلاش کنید.");
-        try {
-          recognition.abort();
-        } catch {
-          /* empty */
-        }
+    noSpeechTimerRef.current = window.setTimeout(() => {
+      if (isListeningRef.current && !finalTextRef.current.trim()) {
+        stopListening();
       }
     }, NO_SPEECH_TIMEOUT);
+  };
 
-    try {
-      recognition.start();
-    } catch {
-      recognitionRef.current = null;
-      saveOnStopRef.current = false;
-      setIsListening(false);
-      setError("میکروفون شروع نشد. لطفاً دوباره تلاش کنید.");
-    }
+  const handleCancel = () => {
+    cancelRef.current = true;
+    clearNoSpeechTimer();
+    stopListening();
+    resetAndClose();
   };
 
   useEffect(() => {
     if (!isOpen) return undefined;
 
-    const startTimer = window.setTimeout(startListening, 250);
+    const openTimer = window.setTimeout(handleStartListening, 250);
 
     return () => {
-      window.clearTimeout(startTimer);
-      clearSilenceTimer();
-      saveOnStopRef.current = false;
-      try {
-        recognitionRef.current?.abort();
-      } catch {
-        /* empty */
-      }
+      window.clearTimeout(openTimer);
+      clearNoSpeechTimer();
+      cancelRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    return () => {
-      isMountedRef.current = false;
-      clearSilenceTimer();
-      try {
-        recognitionRef.current?.abort();
-      } catch {
-        /* empty */
-      }
-    };
-  }, []);
 
   const hasTranscript = transcript.trim().length > 0;
 
@@ -350,6 +208,30 @@ export default function AIVoiceNoteModal() {
             </header>
 
             <div className="custom-scrollbar flex flex-col gap-5 p-6">
+              <div className="flex items-center justify-between rounded-2xl border border-[#093cc8]/10 bg-black/40 p-3 px-4">
+                <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                  <Languages size={14} className="text-[#093cc8]" />
+                  زبان گفتار
+                </span>
+                <div className="flex gap-1 rounded-xl border border-white/10 bg-black/60 p-1">
+                  {LANGUAGES.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={isListening}
+                      onClick={() => setSelectedLang(option.value)}
+                      className={`flex h-8 items-center justify-center rounded-lg px-4 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selectedLang === option.value
+                          ? "bg-[#093cc8] text-white shadow-lg shadow-[#093cc8]/20"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="relative flex flex-col items-center gap-4 rounded-2xl border border-[#093cc8]/10 bg-black/40 p-6 pt-8">
                 <div className="relative flex h-20 w-20 items-center justify-center">
                   {isListening && (
@@ -403,7 +285,7 @@ export default function AIVoiceNoteModal() {
                 {isListening ? (
                   <button
                     type="button"
-                    onClick={stopRecognition}
+                    onClick={stopListening}
                     disabled={!hasTranscript}
                     className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#093cc8] px-5 text-sm font-bold text-white transition hover:bg-[#0730a0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -413,7 +295,7 @@ export default function AIVoiceNoteModal() {
                 ) : (
                   <button
                     type="button"
-                    onClick={startListening}
+                    onClick={handleStartListening}
                     className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#093cc8] px-5 text-sm font-bold text-white transition hover:bg-[#0730a0] active:scale-[0.98]"
                   >
                     <Mic size={17} strokeWidth={2.4} />
