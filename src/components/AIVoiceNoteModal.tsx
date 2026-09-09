@@ -201,34 +201,39 @@ export default function AIVoiceNoteModal() {
         onClick={() => setIsOpen(true)}
         aria-label="افزودن یادداشت صوتی با هوش مصنوعی"
         title="افزودن یادداشت صوتی با هوش مصنوعی"
-        className="group fixed bottom-5 left-5 z-40 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#093cc8]/40 bg-gradient-to-br from-[#093cc8]/30 via-[#093cc8]/10 to-black text-[#093cc8] shadow-[0_0_28px_rgba(9,60,200,0.35)] transition-all duration-300 hover:scale-105 hover:border-[#093cc8]/70 hover:shadow-[0_0_45px_rgba(9,60,200,0.55)] active:scale-95"
+        className="bot-fab fixed left-5 top-auto z-40 bottom-24 lg:left-[17.5rem] lg:bottom-7"
       >
-        <Bot size={26} strokeWidth={2.2} />
-        <span className="pointer-events-none absolute -inset-2 rounded-[22px] border border-[#093cc8]/15 transition-all duration-300 group-hover:-inset-1.5 group-hover:border-[#093cc8]/35" />
+        <span aria-hidden className="bot-fab-aura" />
+        <span aria-hidden className="bot-fab-aura bot-fab-aura-delay" />
+        <span aria-hidden className="bot-fab-orb" />
+        <span className="bot-fab-core">
+          <Bot size={28} strokeWidth={2} className="bot-fab-icon" />
+        </span>
+        <span className="bot-fab-label">دستیار هوشمند صوتی</span>
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/90 px-4 py-6 backdrop-blur-xl">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-canvas-base/90 px-4 py-6 backdrop-blur-xl">
           <section
             dir="rtl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="ai-voice-title"
-            className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[#093cc8]/20 bg-[#0a0a0a] animate-fadeInUp"
+            className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-border-precision bg-surface-card shadow-[0_30px_90px_rgba(0,0,0,0.65)] animate-fadeInUp"
           >
-            <header className="relative flex shrink-0 items-center justify-between border-b border-[#093cc8]/10 bg-gradient-to-b from-[#093cc8]/5 to-transparent px-6 py-4">
+            <header className="relative flex shrink-0 items-center justify-between border-b border-border-precision bg-surface-intermediate/40 px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#093cc8]/30 bg-[#093cc8]/10 text-[#093cc8]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-container text-on-primary-container shadow-glow">
                   <Sparkles size={20} strokeWidth={2.5} />
                 </div>
                 <div>
                   <h2
                     id="ai-voice-title"
-                    className="text-lg font-bold tracking-tight text-white"
+                    className="text-lg font-bold tracking-tight text-text-primary"
                   >
                     یادداشت صوتی هوشمند
                   </h2>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-text-muted">
                     برای حذف: «... حذف از یادداشت‌ها» · برای AI: «... پیام به AI» · خط جدید: «بعدی»
                   </p>
                 </div>
@@ -237,19 +242,19 @@ export default function AIVoiceNoteModal() {
                 type="button"
                 onClick={handleCancel}
                 aria-label="بستن"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-slate-400 transition-all duration-200 hover:border-[#093cc8]/30 hover:bg-[#093cc8]/10 hover:text-[#093cc8]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border-precision bg-surface-container text-text-muted transition-all duration-200 hover:border-primary-container/40 hover:bg-primary-container/10 hover:text-accent-glow"
               >
                 <X size={18} strokeWidth={2.2} />
               </button>
             </header>
 
             <div className="custom-scrollbar flex flex-col gap-5 p-6">
-              <div className="flex items-center justify-between rounded-2xl border border-[#093cc8]/10 bg-black/40 p-3 px-4">
-                <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-                  <Languages size={14} className="text-[#093cc8]" />
+              <div className="flex items-center justify-between rounded-2xl border border-border-precision bg-surface-container-lowest p-3 px-4">
+                <span className="flex items-center gap-2 text-xs font-semibold text-text-secondary">
+                  <Languages size={14} className="text-accent-glow" />
                   زبان گفتار
                 </span>
-                <div className="flex gap-1 rounded-xl border border-white/10 bg-black/60 p-1">
+                <div className="flex gap-1 rounded-xl border border-border-precision bg-surface-intermediate p-1">
                   {LANGUAGES.map((option) => (
                     <button
                       key={option.value}
@@ -258,8 +263,8 @@ export default function AIVoiceNoteModal() {
                       onClick={() => setSelectedLang(option.value)}
                       className={`flex h-8 items-center justify-center rounded-lg px-4 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
                         selectedLang === option.value
-                          ? "bg-[#093cc8] text-white shadow-lg shadow-[#093cc8]/20"
-                          : "text-slate-400 hover:text-slate-200"
+                          ? "bg-primary-container text-on-primary-container shadow-lg shadow-primary-container/30"
+                          : "text-text-muted hover:text-text-primary"
                       }`}
                     >
                       {option.label}
@@ -268,16 +273,16 @@ export default function AIVoiceNoteModal() {
                 </div>
               </div>
 
-              <div className="relative flex flex-col items-center gap-4 rounded-2xl border border-[#093cc8]/10 bg-black/40 p-6 pt-8">
+              <div className="relative flex flex-col items-center gap-4 rounded-2xl border border-border-precision bg-surface-container-lowest p-6 pt-8">
                 <div className="relative flex h-20 w-20 items-center justify-center">
                   {isListening && (
-                    <span className="absolute inset-0 animate-ping rounded-full border border-[#093cc8]/40" />
+                    <span className="absolute inset-0 animate-ping rounded-full border border-accent-glow/40" />
                   )}
                   <span
                     className={`relative flex h-16 w-16 items-center justify-center rounded-full border transition-all duration-300 ${
                       isListening
-                        ? "border-[#093cc8]/50 bg-[#093cc8]/15 text-[#093cc8] shadow-[0_0_35px_rgba(9,60,200,0.45)]"
-                        : "border-white/10 bg-white/[0.04] text-slate-500"
+                        ? "border-primary-container/60 bg-primary-container/15 text-accent-glow shadow-[0_0_35px_rgba(59,130,246,0.45)]"
+                        : "border-border-precision bg-surface-container text-text-muted"
                     }`}
                   >
                     {isListening ? (
@@ -288,7 +293,7 @@ export default function AIVoiceNoteModal() {
                   </span>
                 </div>
 
-                <p className="text-center text-sm font-medium text-slate-200">
+                <p className="text-center text-sm font-medium text-text-secondary">
                   {isListening
                     ? hasTranscript
                       ? "در حال شنیدن..."
@@ -297,10 +302,10 @@ export default function AIVoiceNoteModal() {
                 </p>
 
                 {hasTranscript && (
-                  <div className="w-full rounded-xl border border-[#093cc8]/10 bg-black/60 p-3.5">
+                  <div className="w-full rounded-xl border border-border-precision bg-surface-intermediate p-3.5">
                     <p
                       dir="auto"
-                      className="max-h-36 overflow-y-auto whitespace-pre-wrap text-[14px] leading-7 text-slate-100"
+                      className="max-h-36 overflow-y-auto whitespace-pre-wrap text-[14px] leading-7 text-text-primary"
                     >
                       {transcript}
                     </p>
@@ -310,7 +315,7 @@ export default function AIVoiceNoteModal() {
                 {error && (
                   <p
                     role="alert"
-                    className="w-full rounded-xl border border-red-400/15 bg-red-500/[0.06] p-3 text-center text-xs leading-5 text-red-300"
+                    className="w-full rounded-xl border border-priority-urgent/25 bg-priority-urgent/10 p-3 text-center text-xs leading-5 text-priority-urgent"
                   >
                     {error}
                   </p>
@@ -323,7 +328,7 @@ export default function AIVoiceNoteModal() {
                     type="button"
                     onClick={stopListening}
                     disabled={!hasTranscript}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#093cc8] px-5 text-sm font-bold text-white transition hover:bg-[#0730a0] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-container px-5 text-sm font-bold text-on-primary-container transition hover:bg-accent-electric active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic size={17} strokeWidth={2.4} />
                     پایان و ثبت
@@ -332,7 +337,7 @@ export default function AIVoiceNoteModal() {
                   <button
                     type="button"
                     onClick={handleStartListening}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#093cc8] px-5 text-sm font-bold text-white transition hover:bg-[#0730a0] active:scale-[0.98]"
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-container px-5 text-sm font-bold text-on-primary-container transition hover:bg-accent-electric active:scale-[0.98]"
                   >
                     <Mic size={17} strokeWidth={2.4} />
                     شروع صحبت
@@ -342,14 +347,14 @@ export default function AIVoiceNoteModal() {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex h-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] px-5 text-sm font-semibold text-slate-300 transition hover:border-white/20 hover:text-white active:scale-[0.98]"
+                  className="flex h-11 shrink-0 items-center justify-center rounded-2xl border border-border-precision bg-surface-container px-5 text-sm font-semibold text-text-secondary transition hover:border-outline-variant hover:text-text-primary active:scale-[0.98]"
                 >
                   انصراف
                 </button>
               </div>
 
-              <p className="flex items-center justify-center gap-1.5 text-center text-[10px] leading-5 text-slate-500">
-                <Bot size={12} className="text-[#093cc8]" />
+              <p className="flex items-center justify-center gap-1.5 text-center text-[10px] leading-5 text-text-muted">
+                <Bot size={12} className="text-accent-glow" />
                 «... پیام به AI» ارسال به AI · «... حذف از یادداشت‌ها» حذف نوت · «بعدی» خط جدید
               </p>
             </div>

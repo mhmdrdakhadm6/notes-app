@@ -135,7 +135,7 @@ export default function AddNoteModal() {
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Close modal"
+            aria-label="بستن"
             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] text-slate-400 transition-all duration-200 hover:border-[#093cc8]/30 hover:bg-[#093cc8]/10 hover:text-[#093cc8]"
           >
             <X size={18} strokeWidth={2.2} />
