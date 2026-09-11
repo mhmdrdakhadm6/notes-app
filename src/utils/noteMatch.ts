@@ -1,34 +1,25 @@
-import type { NotesType } from "../types/nots";
+import type { Task } from "../types/nexdo";
 
 const DELETE_PHRASES = [
-  "حذف از یادداشت‌ها",
-  "حذف از یادداشت ها",
-  "حذف از یادداشت‌ها کن",
-  "از یادداشت‌ها حذف",
-  "از یادداشت ها حذف",
-  "حذف از یادداشت",
-  "از یادداشت حذف",
-  "حذف از نوت‌ها",
-  "حذف از نوت ها",
-  "حذف از نوت‌ها کن",
-  "از نوت‌ها حذف",
-  "از نوت ها حذف",
-  "حذف از نوت",
-  "از نوت حذف",
+  "حذف از تسک‌ها",
+  "حذف از تسک ها",
+  "حذف از تسک‌ها کن",
+  "از تسک‌ها حذف",
+  "از تسک ها حذف",
+  "حذف از تسک",
+  "از تسک حذف",
 ];
 
 const LEADING_FILLERS = [
-  "نوتی که",
-  "نوتی",
-  "نوت به نام",
-  "نوت به اسم",
-  "نوت با نام",
-  "نوت",
-  "یادداشت به نام",
-  "یادداشت به اسم",
-  "یادداشت با عنوان",
-  "یادداشتی که",
-  "یادداشت",
+  "تسکی که",
+  "تسکی به نام",
+  "تسکی به اسم",
+  "تسک به نام",
+  "تسک به اسم",
+  "تسک با نام",
+  "تسک با عنوان",
+  "تسکی",
+  "تسک",
   "لطفا",
 ];
 
@@ -166,20 +157,20 @@ function titleSimilarity(spokenTitle: string, noteTitle: string): number {
 
 export const MATCH_THRESHOLD = 0.55;
 
-export function findBestNoteMatch(
-  notes: NotesType[],
+export function findBestTaskMatch(
+  tasks: Task[],
   spokenTitle: string,
-): NotesType | null {
+): Task | null {
   if (!spokenTitle.trim()) return null;
 
-  let bestMatch: NotesType | null = null;
+  let bestMatch: Task | null = null;
   let bestScore = 0;
 
-  for (const note of notes) {
-    const score = titleSimilarity(spokenTitle, note.title);
+  for (const task of tasks) {
+    const score = titleSimilarity(spokenTitle, task.title);
     if (score > bestScore) {
       bestScore = score;
-      bestMatch = note;
+      bestMatch = task;
     }
   }
 

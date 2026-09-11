@@ -201,6 +201,141 @@ body {
   animation: nexdoModalIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ── voice assistant: bottom sheet + premium animations ─────────────── */
+
+@keyframes nexdoOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nexdoSheetIn {
+  0% {
+    opacity: 0;
+    transform: translateY(115%);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(-16px);
+  }
+  82% {
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nexdoSheetCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nexdoStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nexdoMicEcho {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.15);
+    opacity: 0;
+  }
+}
+
+@keyframes nexdoSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes nexdoEqualize {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes nexdoShine {
+  from {
+    background-position: 200% center;
+  }
+  to {
+    background-position: -200% center;
+  }
+}
+
+.nexdo .voice-overlay-in {
+  animation: nexdoOverlayIn 300ms ease-out both;
+}
+
+.nexdo .voice-sheet-in {
+  animation: nexdoSheetIn 640ms cubic-bezier(0.22, 1.18, 0.36, 1) both;
+}
+
+@media (min-width: 768px) {
+  .nexdo .voice-sheet-in {
+    animation: nexdoSheetCardIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+.nexdo .voice-stagger {
+  animation: nexdoStaggerIn 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.nexdo .voice-mic-echo {
+  animation: nexdoMicEcho 1.5s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+.nexdo .voice-spin-slow {
+  animation: nexdoSpin 10s linear infinite;
+}
+
+.nexdo .voice-eq-bar {
+  transform-origin: bottom;
+  animation: nexdoEqualize 900ms ease-in-out infinite;
+}
+
+.nexdo .voice-shine {
+  background-image: linear-gradient(
+    120deg,
+    rgba(37, 99, 235, 0.18) 0%,
+    rgba(96, 165, 250, 0.55) 45%,
+    rgba(96, 165, 250, 0.95) 50%,
+    rgba(96, 165, 250, 0.55) 55%,
+    rgba(37, 99, 235, 0.18) 100%
+  );
+  background-size: 220% auto;
+  animation: nexdoShine 2.8s linear infinite;
+}
+
 .nexdo .text-shadow-glow {
   text-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
 }
@@ -430,6 +565,121 @@ body {
   animation-direction: reverse;
   filter: blur(7px);
   opacity: 0.28;
+}
+
+.bot-fab .bot-fab-silver {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 9999px;
+  padding: 2px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 205deg,
+    rgba(238, 244, 252, 0.95) 245deg,
+    rgba(168, 186, 214, 0.85) 285deg,
+    rgba(255, 255, 255, 1) 315deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: botFabSpin 5.5s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.bot-fab:hover .bot-fab-silver {
+  animation-duration: 3.2s;
+}
+
+/* ── mobile nav: add-task center button ─────────────────────────── */
+
+.nexdo .mnav-aura {
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 80deg,
+    #60a5fa 150deg,
+    #e5edff 195deg,
+    #38bdf8 250deg,
+    transparent 320deg
+  );
+  filter: blur(4px);
+  opacity: 0.55;
+  animation: botFabSpin 4.5s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.nexdo .mnav-aura-rev {
+  animation: botFabSpin 7s linear infinite reverse;
+  filter: blur(9px);
+  opacity: 0.28;
+}
+
+.nexdo .mnav-ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(96, 165, 250, 0.5);
+  animation: nexdoPingRing 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes nexdoPingRing {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.8;
+  }
+  75%,
+  100% {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+
+.nexdo .mnav-core {
+  background:
+    linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.35) 55%,
+      transparent 70%,
+      rgba(255, 255, 255, 0.18) 100%
+    ),
+    linear-gradient(145deg, #3b82f6, #2563eb 55%, #1d4ed8);
+  background-size: 220% 100%, 100% 100%;
+  animation:
+    nexdoSheen 3.4s linear infinite,
+    botFabBreath 3s ease-in-out infinite;
+  will-change: background-position;
+}
+
+@keyframes nexdoSheen {
+  from {
+    background-position: 220% center, 0 0;
+  }
+  to {
+    background-position: -220% center, 0 0;
+  }
+}
+
+.nexdo .mnav-spin {
+  animation: botFabSpin 6s linear infinite;
+  will-change: transform;
+  pointer-events: none;
 }
 
 .bot-fab .bot-fab-orb {

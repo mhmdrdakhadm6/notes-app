@@ -231,6 +231,17 @@ export function TasksPage() {
     () => tasks.filter((t) => t.dueDate === todayKey() && t.status !== "completed").length,
     [tasks],
   );
+  const permanentTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.status !== "completed" && t.status !== "archived" && t.dueDate === null)
+        .sort(
+          (a, b) =>
+            Number(b.pinned) - Number(a.pinned) ||
+            String(b.createdAt).localeCompare(String(a.createdAt)),
+        ),
+    [tasks],
+  );
 
   const setTab = (tab: Filter) => {
     setFilter(tab);
@@ -333,6 +344,21 @@ export function TasksPage() {
                   )}
                 </div>
               </div>
+
+              {permanentTasks.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon name="all_inclusive" size="sm" className="text-accent-glow" />
+                    <h3 className="font-headline-sm text-text-primary">همیشگی</h3>
+                    <Badge>{permanentTasks.length} تسک</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {permanentTasks.map((task) => (
+                      <TaskItem key={task.id} task={task} />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {todayAgenda.done.length > 0 && (
                 <div>

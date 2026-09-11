@@ -67,6 +67,14 @@ export const PERSIAN_MONTHS = [
   "اسفند",
 ];
 
+export function faDigits(value: string | number): string {
+  return String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
+}
+
+export function faToEn(value: string): string {
+  return String(value).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+}
+
 export const PERSIAN_WEEKDAYS = [
   "یکشنبه",
   "دوشنبه",

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { cn } from "../../utils/nexdo";
+import { cn, formatDueLabel, formatTimeReadable, parseDueDate } from "../../utils/nexdo";
 import { useNexdo } from "../../contexts/NexdoContext";
+import { keyForJalaliDay, toJalali } from "../../utils/persianDate";
 import {
   PRIORITY_META,
   type Task,
   type TaskPriority,
 } from "../../types/nexdo";
 import { Icon } from "./Icon";
+import { ScheduleWheels, type JalaliClock } from "./ScheduleWheels";
 
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"];
 
@@ -77,8 +79,13 @@ export function TaskModal() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [dueDate, setDueDate] = useState("");
-  const [dueTime, setDueTime] = useState("");
+  const [scheduleMode, setScheduleMode] = useState<"always" | "scheduled">("always");
+  const [schedule, setSchedule] = useState<JalaliClock>(() => {
+    const j = toJalali(new Date());
+    const now = new Date();
+    return { jy: j.jy, jm: j.jm, jd: j.jd, hh: now.getHours(), mm: now.getMinutes() };
+  });
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [reminder, setReminder] = useState("۳۰ دقیقه قبل");
@@ -95,8 +102,27 @@ export function TaskModal() {
       setTitle(source.title ?? "");
       setDescription(source.description ?? "");
       setPriority(source.priority ?? "medium");
-      setDueDate(source.dueDate ?? "");
-      setDueTime(source.dueTime ?? "");
+      const srcDate = source.dueDate ? parseDueDate(source.dueDate) : null;
+      if (srcDate) {
+        const j = toJalali(srcDate);
+        const parts = (source.dueTime ?? "").split(":");
+        const hh = parts[0] ? Number.parseInt(parts[0], 10) : 12;
+        const mm = parts[1] ? Number.parseInt(parts[1], 10) : 0;
+        setScheduleMode("scheduled");
+        setSchedule({
+          jy: j.jy,
+          jm: j.jm,
+          jd: j.jd,
+          hh: Number.isNaN(hh) ? 12 : hh,
+          mm: Number.isNaN(mm) ? 0 : mm,
+        });
+      } else {
+        setScheduleMode("always");
+        const j = toJalali(new Date());
+        const now = new Date();
+        setSchedule({ jy: j.jy, jm: j.jm, jd: j.jd, hh: now.getHours(), mm: now.getMinutes() });
+      }
+      setShowAdvanced(false);
       setProjectId(source.projectId ?? null);
       setSelectedTags(source.tags ?? []);
       setReminder(source.reminder ?? "۳۰ دقیقه قبل");
@@ -138,12 +164,17 @@ export function TaskModal() {
       pushToast({ type: "error", title: "عنوان اجباری است", message: "برای تسک یک عنوان بگذار." });
       return;
     }
+    const scheduled = scheduleMode === "scheduled";
+    const dueKey = scheduled ? keyForJalaliDay(schedule.jy, schedule.jm, schedule.jd) : null;
+    const dueTimeValue = scheduled
+      ? `${String(schedule.hh).padStart(2, "0")}:${String(schedule.mm).padStart(2, "0")}`
+      : null;
     const payload: Partial<Task> = {
       title: title.trim(),
       description: description.trim(),
       priority,
-      dueDate: dueDate || null,
-      dueTime: dueTime || null,
+      dueDate: dueKey,
+      dueTime: dueTimeValue,
       projectId,
       tags: selectedTags,
       reminder,
@@ -155,24 +186,43 @@ export function TaskModal() {
       pushToast({ type: "success", title: "تسک به‌روزرسانی شد", message: title.trim() });
     } else {
       addTask(payload);
-      pushToast({ type: "success", title: "تسک ساخته شد", message: `به ${projects.find((p) => p.id === projectId)?.name ?? "صندوق ورودی"} اضافه شد` });
+      const where = scheduled
+        ? `برای ${formatDueLabel(dueKey!)} برنامه‌ریزی شد`
+        : "در فهرست «همیشگی» ذخیره شد";
+      pushToast({
+        type: "success",
+        title: "تسک ساخته شد",
+        message: `${where} · ${projects.find((p) => p.id === projectId)?.name ?? "صندوق ورودی"}`,
+      });
     }
     closeTaskModal();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT" && e.target !== document.querySelector("input[type='date'], input[type='time']")) {
+    const target = e.target as HTMLElement;
+    if (
+      e.key === "Enter" &&
+      target.tagName === "INPUT" &&
+      target.id !== "nexdo-new-tag"
+    ) {
       e.preventDefault();
       save();
     }
   };
 
+  const scheduledKey = keyForJalaliDay(schedule.jy, schedule.jm, schedule.jd);
+  const scheduledTime = `${String(schedule.hh).padStart(2, "0")}:${String(schedule.mm).padStart(2, "0")}`;
+  const schedulePreview = `${formatDueLabel(scheduledKey)} · ${formatTimeReadable(scheduledTime)}`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeTaskModal} />
-      <div
+<div
         onKeyDown={handleKeyDown}
-        className="animate-modal-in nexdo-task-card relative flex max-h-[92dvh] w-full flex-col rounded-t-2xl border border-border-precision bg-surface-card shadow-soft sm:max-w-lg sm:rounded-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nexdo-task-modal-title"
+        className="animate-modal-in nexdo-task-card relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-border-precision bg-surface-card shadow-soft sm:max-w-lg sm:rounded-2xl"
       >
         <header className="flex items-center justify-between border-b border-border-precision px-5 py-4">
           <div className="flex items-center gap-3">
@@ -180,7 +230,7 @@ export function TaskModal() {
               <Icon name={isEdit ? "edit_square" : "add_task"} size="sm" filled />
             </span>
             <div>
-              <h2 className="font-headline-sm text-text-primary">
+              <h2 id="nexdo-task-modal-title" className="font-headline-sm text-text-primary">
                 {isEdit ? "ویرایش تسک" : "ایجاد تسک جدید"}
               </h2>
               <p className="font-label-xs text-text-muted">
@@ -239,27 +289,55 @@ export function TaskModal() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>تاریخ سررسید</FieldLabel>
-              <input
-                id="nexdo-task-date"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="text-field h-10 w-full px-3 font-body-sm"
-              />
+          <div className="rounded-xl border border-border-precision p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Icon name="calendar_month" size="sm" className="text-accent-glow" />
+              <span className="font-label-xs font-bold uppercase tracking-wide text-text-muted">
+                این تسک چه زمانی نمایش داده شود؟
+              </span>
             </div>
-            <div>
-              <FieldLabel>ساعت سررسید</FieldLabel>
-              <input
-                id="nexdo-task-time"
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="text-field h-10 w-full px-3 font-body-sm"
-              />
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-intermediate p-1">
+              <button
+                type="button"
+                onClick={() => setScheduleMode("always")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-lg py-2 font-label-xs font-semibold transition-colors",
+                  scheduleMode === "always"
+                    ? "bg-primary-container text-on-primary-container"
+                    : "text-text-muted hover:text-text-primary",
+                )}
+              >
+                <Icon name="all_inclusive" size="xs" filled={scheduleMode === "always"} />
+                همیشه
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleMode("scheduled")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-lg py-2 font-label-xs font-semibold transition-colors",
+                  scheduleMode === "scheduled"
+                    ? "bg-primary-container text-on-primary-container"
+                    : "text-text-muted hover:text-text-primary",
+                )}
+              >
+                <Icon name="event" size="xs" filled={scheduleMode === "scheduled"} />
+                در تاریخ و ساعت
+              </button>
             </div>
+            {scheduleMode === "always" ? (
+              <p className="mt-3 flex items-center gap-2 rounded-lg bg-surface-container/60 px-3 py-2 font-body-sm text-text-secondary">
+                <Icon name="visibility" size="xs" className="text-accent-glow" />
+                همیشه در فهرست «همیشگی» دیده می‌شود — بدون تاریخ.
+              </p>
+            ) : (
+              <div className="mt-3">
+                <ScheduleWheels value={schedule} onChange={setSchedule} />
+                <div className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-surface-intermediate px-3 py-1.5 font-body-sm font-semibold text-text-primary">
+                  <Icon name="event_repeat" size="xs" className="text-accent-glow" />
+                  نمایان‌شونده: {schedulePreview}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -313,6 +391,7 @@ export function TaskModal() {
                 ))}
               <div className="relative">
                 <input
+                  id="nexdo-new-tag"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => {
@@ -328,41 +407,57 @@ export function TaskModal() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>یادآوری</FieldLabel>
-              <select
-                value={reminder}
-                onChange={(e) => setReminder(e.target.value)}
-                className="text-field h-10 w-full px-2.5 font-body-sm"
-              >
-                {reminders.map((r) => (
-                  <option key={r} value={r} className="bg-surface-card">{r}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <FieldLabel>تکرار</FieldLabel>
-              <select
-                value={recurrence}
-                onChange={(e) => setRecurrence(e.target.value)}
-                className="text-field h-10 w-full px-2.5 font-body-sm"
-              >
-                {recurrences.map((r) => (
-                  <option key={r} value={r} className="bg-surface-card">{r}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <FieldLabel>زمان تخمینی</FieldLabel>
-            <input
-              value={estimatedTime}
-              onChange={(e) => setEstimatedTime(e.target.value)}
-              placeholder="مثلاً ۱.۵س، ۴۵د، ۲ر"
-              className="text-field h-10 w-full px-3 font-body-md"
-            />
+          <div className="border-t border-border-precision pt-3">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="flex w-full items-center justify-between font-label-xs font-bold uppercase tracking-wide text-text-muted transition-colors hover:text-text-primary"
+            >
+              <span className="flex items-center gap-2">
+                <Icon name="tune" size="xs" />
+                تنظیمات پیشرفته
+              </span>
+              <Icon name={showAdvanced ? "expand_less" : "expand_more"} size="xs" />
+            </button>
+            {showAdvanced && (
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>یادآوری</FieldLabel>
+                    <select
+                      value={reminder}
+                      onChange={(e) => setReminder(e.target.value)}
+                      className="text-field h-10 w-full px-2.5 font-body-sm"
+                    >
+                      {reminders.map((r) => (
+                        <option key={r} value={r} className="bg-surface-card">{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>تکرار</FieldLabel>
+                    <select
+                      value={recurrence}
+                      onChange={(e) => setRecurrence(e.target.value)}
+                      className="text-field h-10 w-full px-2.5 font-body-sm"
+                    >
+                      {recurrences.map((r) => (
+                        <option key={r} value={r} className="bg-surface-card">{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>زمان تخمینی</FieldLabel>
+                  <input
+                    value={estimatedTime}
+                    onChange={(e) => setEstimatedTime(e.target.value)}
+                    placeholder="مثلاً ۱.۵س، ۴۵د، ۲ر"
+                    className="text-field h-10 w-full px-3 font-body-md"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-4 border-t border-border-precision pt-3">

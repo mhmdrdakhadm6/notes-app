@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { cn, faLongDate } from "../../utils/nexdo";
+import { cn, faDigits, faLongDate, PERSIAN_MONTHS, PERSIAN_WEEKDAYS } from "../../utils/nexdo";
+import { toJalali } from "../../utils/persianDate";
 import { useNexdo } from "../../contexts/NexdoContext";
 import type { Page } from "../../types/nexdo";
 import { Icon } from "./Icon";
@@ -321,8 +322,54 @@ function ScorePill() {
   );
 }
 
+function HeaderDateBox({
+  date,
+  active = false,
+}: {
+  date: Date;
+  active?: boolean;
+}) {
+  const { jm, jd } = toJalali(date);
+  return (
+    <div
+      title={faLongDate(date)}
+      className={cn(
+        "flex flex-col items-center rounded-lg border transition-all duration-300",
+        active
+          ? "min-w-11 border-accent-electric/60 bg-primary-container/15 px-2 py-1 shadow-[0_0_12px_rgba(59,130,246,0.25)]"
+          : "min-w-7 border-border-precision/50 bg-surface-container/30 px-1.5 py-1 opacity-75",
+      )}
+    >
+      {active && (
+        <span className="font-label-xs font-bold leading-[14px] text-accent-glow">
+          {PERSIAN_WEEKDAYS[date.getDay()]}
+        </span>
+      )}
+      <span
+        className={cn(
+          "font-mono-metric font-bold leading-[18px]",
+          active ? "text-[15px] text-text-primary" : "text-xs text-text-muted",
+        )}
+      >
+        {faDigits(jd)}
+      </span>
+      {active && (
+        <span className="hidden font-label-xs leading-3 text-accent-glow/70 min-[430px]:block">
+          {PERSIAN_MONTHS[jm - 1]}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function TopBar() {
   const { page } = useNexdo();
+  const now = new Date();
+  const offDay = (offset: number) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + offset);
+    return d;
+  };
 
   return (
     <header className="navbar-blur sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border-precision bg-surface-intermediate/55 px-4 lg:px-6">
@@ -340,9 +387,11 @@ export function TopBar() {
         <div className="hidden flex-1 justify-center md:flex">
           <GlobalSearch />
         </div>
-        <span className="shrink-0 whitespace-nowrap font-body-sm font-semibold text-text-primary">
-          {faLongDate(new Date())}
-        </span>
+        <div className="flex shrink-0 items-stretch gap-1 rounded-xl border border-border-precision bg-surface-card/70 p-1">
+          <HeaderDateBox date={offDay(-1)} />
+          <HeaderDateBox date={now} active />
+          <HeaderDateBox date={offDay(1)} />
+        </div>
         <ScorePill />
         <NotificationsBell />
         <ProfileMenu />
