@@ -9,9 +9,10 @@ import {
   findBestTaskMatch,
   parseAIMessageCommand,
   parseFullscreenCommand,
-  parseTaskActionCommand,
   parseSayCommand,
+  parseTaskActionCommand,
 } from "../utils/noteMatch";
+import { classifyVoiceIntent, hasAIApiKey } from "../utils/aiIntent";
 
 const MAX_TITLE_LENGTH = 20;
 const SILENCE_TIMEOUT = 3000;
@@ -36,6 +37,7 @@ export default function AIVoiceNoteModal() {
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
   const [selectedLang, setSelectedLang] = useState("fa-IR");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const finalTextRef = useRef("");
   const cancelRef = useRef(false);
@@ -134,6 +136,120 @@ export default function AIVoiceNoteModal() {
     resetAndClose();
   };
 
+  type RoutedCommand =
+    | { kind: "ai_chat"; message: string }
+    | { kind: "say"; message: string }
+    | { kind: "fullscreen"; request: "enter" | "exit" }
+    | { kind: "task_action"; action: "delete" | "complete"; spokenTitle: string }
+    | { kind: "add"; text: string };
+
+  const mapLocalCommand = (spokenText: string): RoutedCommand => {
+    const aiMessage = parseAIMessageCommand(spokenText);
+    if (aiMessage.isAIMessage) {
+      return { kind: "ai_chat", message: aiMessage.message };
+    }
+
+    const sayCommand = parseSayCommand(spokenText);
+    if (sayCommand.isSay) {
+      return { kind: "say", message: sayCommand.message };
+    }
+
+    const fullscreenCommand = parseFullscreenCommand(spokenText);
+    if (
+      fullscreenCommand.isFullscreen &&
+      fullscreenCommand.request !== "none"
+    ) {
+      return { kind: "fullscreen", request: fullscreenCommand.request };
+    }
+
+    const actionCommand = parseTaskActionCommand(spokenText);
+    if (actionCommand.action !== "none") {
+      return {
+        kind: "task_action",
+        action: actionCommand.action,
+        spokenTitle: actionCommand.spokenTitle,
+      };
+    }
+
+    return { kind: "add", text: spokenText };
+  };
+
+  const dispatchCommand = (command: RoutedCommand) => {
+    setIsAnalyzing(false);
+
+    switch (command.kind) {
+      case "ai_chat": {
+        if (!command.message.trim()) {
+          setError(
+            "لطفاً متن پیام را هم بگویید؛ سپس عبارت «پیام به AI» را بگویید.",
+          );
+          return;
+        }
+        sendToAI(command.message);
+        resetAndClose();
+        return;
+      }
+      case "say":
+        sendToAI(command.message);
+        resetAndClose();
+        return;
+      case "fullscreen":
+        void handleFullscreen(command.request);
+        return;
+      case "task_action":
+        handleVoiceAction(command);
+        return;
+      case "add":
+        addTaskAndClose(command.text);
+        return;
+      default:
+        return;
+    }
+  };
+
+  const runVoiceCommand = async (spokenText: string) => {
+    setIsAnalyzing(true);
+    setError("");
+
+    if (hasAIApiKey()) {
+      const ai = await classifyVoiceIntent(spokenText);
+      if (ai) {
+        if (ai.action === "delete_task" || ai.action === "complete_task") {
+          const localFallbackTitle =
+            parseTaskActionCommand(spokenText).spokenTitle;
+          dispatchCommand({
+            kind: "task_action",
+            action:
+              ai.action === "delete_task" ? "delete" : "complete",
+            spokenTitle: ai.title || localFallbackTitle,
+          });
+          return;
+        }
+        if (ai.action === "fullscreen_enter" || ai.action === "fullscreen_exit") {
+          dispatchCommand({
+            kind: "fullscreen",
+            request: ai.action === "fullscreen_enter" ? "enter" : "exit",
+          });
+          return;
+        }
+        if (ai.action === "ai_chat") {
+          dispatchCommand({ kind: "ai_chat", message: ai.message });
+          return;
+        }
+        if (ai.action === "say") {
+          dispatchCommand({ kind: "say", message: ai.message });
+          return;
+        }
+        if (ai.action === "add_task") {
+          dispatchCommand({ kind: "add", text: ai.title || spokenText });
+          return;
+        }
+      }
+    }
+
+    dispatchCommand(mapLocalCommand(spokenText));
+  };
+
   const {
     isListening,
     isSupported,
@@ -158,43 +274,7 @@ export default function AIVoiceNoteModal() {
         setError("صدایی شنیده نشد. دوباره تلاش کنید.");
         return;
       }
-
-      const aiMessage = parseAIMessageCommand(spokenText);
-      if (aiMessage.isAIMessage) {
-        if (!aiMessage.message.trim()) {
-          setError(
-            "لطفاً متن پیام را هم بگویید؛ سپس عبارت «پیام به AI» را بگویید.",
-          );
-          return;
-        }
-        sendToAI(aiMessage.message);
-        resetAndClose();
-        return;
-      }
-
-      const sayCommand = parseSayCommand(spokenText);
-      if (sayCommand.isSay) {
-        sendToAI(sayCommand.message);
-        resetAndClose();
-        return;
-      }
-
-      const fullscreenCommand = parseFullscreenCommand(spokenText);
-      if (
-        fullscreenCommand.isFullscreen &&
-        fullscreenCommand.request !== "none"
-      ) {
-        void handleFullscreen(fullscreenCommand.request);
-        return;
-      }
-
-      const deleteCommand = parseTaskActionCommand(spokenText);
-      if (deleteCommand.action !== "none") {
-        handleVoiceAction(deleteCommand);
-        return;
-      }
-
-      addTaskAndClose(spokenText);
+      void runVoiceCommand(spokenText);
     },
     onError: (code) => {
       if (code === "not-allowed") {
@@ -392,12 +472,23 @@ export default function AIVoiceNoteModal() {
                 </div>
 
                 <p className="text-center text-[13px] font-semibold text-text-secondary">
-                  {isListening
-                    ? hasTranscript
-                      ? "در حال شنیدن..."
-                      : "در حال گوش دادن... صحبت کنید"
-                    : "برای شروع دوباره، روی میکروفون بزنید"}
+                  {isAnalyzing
+                    ? "در حال تحلیل فرمان با هوش مصنوعی..."
+                    : isListening
+                      ? hasTranscript
+                        ? "در حال شنیدن..."
+                        : "در حال گوش دادن... صحبت کنید"
+                      : "برای شروع دوباره، روی میکروفون بزنید"}
                 </p>
+
+                {isAnalyzing && (
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 animate-ping rounded-full bg-accent-glow" />
+                    <span className="text-[10px] font-semibold text-text-muted">
+                      تشخیص نیت و اجرای دقیق فرمان
+                    </span>
+                  </div>
+                )}
 
                 {isListening && !hasTranscript && (
                   <div className="flex h-5 items-end gap-1" aria-hidden>
@@ -443,17 +534,18 @@ export default function AIVoiceNoteModal() {
                   <button
                     type="button"
                     onClick={stopListening}
-                    disabled={!hasTranscript}
+                    disabled={!hasTranscript || isAnalyzing}
                     className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic size={16} strokeWidth={2.4} />
-                    پایان و ثبت تسک
+                    پایان و اجرای فرمان
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleStartListening}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97]"
+                    disabled={isAnalyzing}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic size={16} strokeWidth={2.4} />
                     شروع صحبت
@@ -463,7 +555,8 @@ export default function AIVoiceNoteModal() {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-border-precision bg-surface-container px-4 text-sm font-semibold text-text-secondary transition hover:border-outline-variant hover:text-text-primary active:scale-[0.97]"
+                  disabled={isAnalyzing}
+                  className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-border-precision bg-surface-container px-4 text-sm font-semibold text-text-secondary transition hover:border-outline-variant hover:text-text-primary active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   انصراف
                 </button>
@@ -474,7 +567,7 @@ export default function AIVoiceNoteModal() {
                 style={{ animationDelay: "320ms" }}
               >
                 <Bot size={12} className="text-accent-glow" />
-                «... پیام به AI» ارسال به AI · «... حذف از تسک‌ها» حذف تسک · «بعدی» خط جدید
+                «حذف تسک» · «انجام شد» · «تمام‌صفحه» · «پیام به AI» · «... اضافه کن»
               </p>
             </div>
           </section>

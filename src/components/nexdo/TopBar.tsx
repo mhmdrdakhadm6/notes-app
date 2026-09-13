@@ -210,7 +210,7 @@ function NotificationsBell() {
         <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-priority-urgent" />
       </button>
       {open && (
-        <div className="animate-dropdown absolute left-0 top-11 z-50 w-80 overflow-hidden rounded-xl bg-surface-card shadow-soft border border-border-precision">
+        <div className="nexdo-dropdown-centered animate-dropdown absolute left-0 top-11 z-50 w-80 overflow-hidden rounded-xl bg-surface-card shadow-soft border border-border-precision">
           <div className="flex items-center justify-between border-b border-border-precision px-4 py-3">
             <span className="font-label-xs font-bold uppercase tracking-wide text-text-secondary">
               اعلان‌ها
