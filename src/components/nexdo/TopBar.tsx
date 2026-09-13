@@ -322,58 +322,119 @@ function ScorePill() {
   );
 }
 
-function HeaderDateBox({
-  date,
-  active = false,
-}: {
-  date: Date;
-  active?: boolean;
-}) {
-  const { jm, jd } = toJalali(date);
+function HeaderDateWidget() {
+  const { setPage, setSubview } = useNexdo();
+  const now = new Date();
+  const todayJ = toJalali(now);
+  const daysSinceSat = (now.getDay() + 1) % 7;
+
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - daysSinceSat + i);
+    const j = toJalali(d);
+    const isToday =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    const weekend = d.getDay() === 4 || d.getDay() === 5;
+    return { d, j, isToday, weekend };
+  });
+
+  const goToday = () => {
+    setPage("tasks");
+    setSubview("today");
+  };
+
   return (
-    <div
-      title={faLongDate(date)}
-      className={cn(
-        "flex flex-col items-center rounded-lg border transition-all duration-300",
-        active
-          ? "min-w-11 border-accent-electric/60 bg-primary-container/15 px-2 py-1 shadow-[0_0_12px_rgba(59,130,246,0.25)]"
-          : "min-w-7 border-border-precision/50 bg-surface-container/30 px-1.5 py-1 opacity-75",
-      )}
+    <button
+      type="button"
+      onClick={goToday}
+      title={`${faLongDate(now)} — رفتن به وظایف امروز`}
+      aria-label={`تاریخ امروز ${faLongDate(now)}`}
+      className="group flex shrink-0 items-center gap-1.5 rounded-2xl border border-border-precision bg-surface-card/70 px-1.5 py-1 transition-all duration-300 hover:border-accent-electric/40 hover:bg-surface-card hover:shadow-[0_4px_18px_rgba(37,99,235,0.18)] active:scale-[0.98]"
     >
-      {active && (
-        <span className="font-label-xs font-bold leading-[14px] text-accent-glow">
-          {PERSIAN_WEEKDAYS[date.getDay()]}
+      <span className="hidden flex-col items-center px-1 leading-none min-[560px]:flex">
+        <span className="font-mono-metric text-[15px] font-bold text-accent-glow">
+          {faDigits(todayJ.jd)}
         </span>
-      )}
-      <span
-        className={cn(
-          "font-mono-metric font-bold leading-[18px]",
-          active ? "text-[15px] text-text-primary" : "text-xs text-text-muted",
-        )}
-      >
-        {faDigits(jd)}
+        <span className="mt-0.5 text-[9px] text-text-muted">{PERSIAN_MONTHS[todayJ.jm - 1]}</span>
       </span>
-      {active && (
-        <span className="hidden font-label-xs leading-3 text-accent-glow/70 min-[430px]:block">
-          {PERSIAN_MONTHS[jm - 1]}
-        </span>
-      )}
-    </div>
+
+      <span aria-hidden className="hidden h-6 w-px bg-border-precision/70 min-[560px]:block" />
+
+      <span className="flex items-center gap-[3px] max-sm:gap-[2px]">
+        {week.map((d, i) => (
+          <span
+            key={i}
+            className={cn(
+              "flex flex-col items-center rounded-lg px-[3px] py-[2px] transition-all duration-300 max-sm:px-[2px]",
+              d.isToday
+                ? "bg-accent-gradient text-on-primary-container shadow-[0_4px_12px_rgba(37,99,235,0.45)]"
+                : d.weekend
+                  ? "text-text-muted/60"
+                  : "text-text-secondary group-hover:bg-surface-container/40",
+            )}
+          >
+            <span
+              className={cn(
+                "hidden text-[9px] font-medium leading-none min-[440px]:inline",
+                d.isToday ? "text-on-primary-container/80" : "",
+              )}
+            >
+              {PERSIAN_WEEKDAYS[d.d.getDay()][0]}
+            </span>
+            <span className="text-[13px] font-bold leading-5 max-sm:text-xs max-sm:leading-4">
+              {faDigits(d.j.jd)}
+            </span>
+          </span>
+        ))}
+      </span>
+
+      <span
+        aria-hidden
+        className="hidden h-1.5 w-1.5 animate-pulse rounded-full bg-priority-low shadow-[0_0_8px_rgba(74,222,128,0.8)] sm:block"
+      />
+    </button>
+  );
+}
+
+function FullscreenToggle() {
+  const [isFs, setIsFs] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setIsFs(document.fullscreenElement != null);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggle = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    } else {
+      void document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isFs ? "خروج از تمام‌صفحه" : "تمام‌صفحه"}
+      title={isFs ? "خروج از تمام‌صفحه" : "تمام‌صفحه"}
+      className="icon-btn icon-btn-sm text-text-muted transition-colors hover:bg-surface-container hover:text-text-primary"
+    >
+      <Icon name={isFs ? "fullscreen_exit" : "fullscreen"} size="sm" />
+    </button>
   );
 }
 
 export function TopBar() {
   const { page } = useNexdo();
-  const now = new Date();
-  const offDay = (offset: number) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() + offset);
-    return d;
-  };
 
   return (
-    <header className="navbar-blur sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border-precision bg-surface-intermediate/55 px-4 lg:px-6">
-      <div className="flex items-center gap-2 lg:hidden">
+    <header className="navbar-blur sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border-precision bg-surface-intermediate/55 px-4 lg:px-6 max-sm:gap-2">
+      <div className="flex shrink-0 items-center gap-2">
+        <FullscreenToggle />
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container">
           <Icon name="grid_view" size="sm" filled className="text-on-primary-container" />
         </span>
@@ -383,15 +444,11 @@ export function TopBar() {
         <h1 className="font-headline-sm text-text-primary">{pageTitles[page]}</h1>
       </div>
 
-      <div className="flex flex-1 items-center justify-end gap-3">
+      <div className="flex flex-1 items-center justify-end gap-3 max-sm:gap-2">
         <div className="hidden flex-1 justify-center md:flex">
           <GlobalSearch />
         </div>
-        <div className="flex shrink-0 items-stretch gap-1 rounded-xl border border-border-precision bg-surface-card/70 p-1">
-          <HeaderDateBox date={offDay(-1)} />
-          <HeaderDateBox date={now} active />
-          <HeaderDateBox date={offDay(1)} />
-        </div>
+        <HeaderDateWidget />
         <ScorePill />
         <NotificationsBell />
         <ProfileMenu />

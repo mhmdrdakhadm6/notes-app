@@ -8,7 +8,8 @@ import {
   applyLineBreaks,
   findBestTaskMatch,
   parseAIMessageCommand,
-  parseDeleteCommand,
+  parseFullscreenCommand,
+  parseTaskActionCommand,
   parseSayCommand,
 } from "../utils/noteMatch";
 
@@ -30,7 +31,7 @@ function buildTaskTitle(text: string): string {
 
 export default function AIVoiceNoteModal() {
   const { sendToAI } = useAIChat();
-  const { addTask, tasks, deleteTask } = useNexdo();
+  const { addTask, tasks, deleteTask, toggleComplete } = useNexdo();
   const [isOpen, setIsOpen] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
@@ -65,26 +66,71 @@ export default function AIVoiceNoteModal() {
     resetAndClose();
   };
 
-  const handleVoiceDelete = (spokenTitle: string) => {
-    if (!spokenTitle.trim()) {
+  const handleVoiceAction = (command: { action: string; spokenTitle: string }) => {
+    if (!command.spokenTitle.trim()) {
       setError(
-        "لطفاً نام تسک را هم بگویید؛ سپس عبارت «حذف از تسک‌ها» را بگویید.",
+        command.action === "delete"
+          ? "لطفاً نام تسک را هم بگویید؛ مثلاً «تسک خرید نان را حذف کن»."
+          : "لطفاً نام تسک را هم بگویید؛ مثلاً «خرید نان را انجام دادم».",
       );
       return;
     }
 
-    const matchedTask = findBestTaskMatch(tasks, spokenTitle);
+    const matchedTask = findBestTaskMatch(tasks, command.spokenTitle);
 
     if (!matchedTask) {
-      setError(`تسکی با عنوان «${spokenTitle}» پیدا نشد. دوباره تلاش کنید.`);
+      setError(`تسکی با عنوان «${command.spokenTitle}» پیدا نشد. دوباره تلاش کنید.`);
       toast.error("تسکی با این عنوان پیدا نشد");
       return;
     }
 
-    deleteTask(matchedTask.id);
-    toast.success(`تسک «${matchedTask.title}» حذف شد`, {
-      duration: 2600,
-    });
+    if (command.action === "delete") {
+      deleteTask(matchedTask.id);
+      toast.success(`تسک «${matchedTask.title}» حذف شد`, { duration: 2600 });
+    } else {
+      if (matchedTask.status === "completed") {
+        toast("این تسک قبلاً انجام شده", { duration: 2200 });
+        resetAndClose();
+        return;
+      }
+      toggleComplete(matchedTask.id);
+      toast.success(`تسک «${matchedTask.title}» انجام شد ✓`, { duration: 2600 });
+    }
+    resetAndClose();
+  };
+
+  const handleFullscreen = async (request: "enter" | "exit") => {
+    const el = document.fullscreenElement || (document as any).webkitFullscreenElement || null;
+    try {
+      if (request === "enter") {
+        if (el) {
+          toast("هم‌اکنون در حالت تمام صفحه هستید", { duration: 2200 });
+        } else {
+          const root = document.documentElement;
+          if (root?.requestFullscreen) {
+            await root.requestFullscreen();
+          } else if ((root as any)?.webkitRequestFullscreen) {
+            await (root as any).webkitRequestFullscreen();
+          } else {
+            toast.error("حالت تمام صفحه در این مرورگر پشتیبانی نمی‌شود");
+            resetAndClose();
+            return;
+          }
+          toast.success("حالت تمام صفحه فعال شد", { duration: 2200 });
+        }
+      } else if (el) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+        toast.success("حالت تمام صفحه بسته شد", { duration: 2200 });
+      } else {
+        toast("در حالت تمام صفحه نیستید", { duration: 2200 });
+      }
+    } catch {
+      toast.error("تغییر حالت تمام صفحه ناموفق بود");
+    }
     resetAndClose();
   };
 
@@ -133,9 +179,18 @@ export default function AIVoiceNoteModal() {
         return;
       }
 
-      const deleteCommand = parseDeleteCommand(spokenText);
-      if (deleteCommand.isDelete) {
-        handleVoiceDelete(deleteCommand.spokenTitle);
+      const fullscreenCommand = parseFullscreenCommand(spokenText);
+      if (
+        fullscreenCommand.isFullscreen &&
+        fullscreenCommand.request !== "none"
+      ) {
+        void handleFullscreen(fullscreenCommand.request);
+        return;
+      }
+
+      const deleteCommand = parseTaskActionCommand(spokenText);
+      if (deleteCommand.action !== "none") {
+        handleVoiceAction(deleteCommand);
         return;
       }
 

@@ -1,40 +1,5 @@
 import type { Task } from "../types/nexdo";
 
-const DELETE_PHRASES = [
-  "حذف از تسک‌ها",
-  "حذف از تسک ها",
-  "حذف از تسک‌ها کن",
-  "از تسک‌ها حذف",
-  "از تسک ها حذف",
-  "حذف از تسک",
-  "از تسک حذف",
-];
-
-const LEADING_FILLERS = [
-  "تسکی که",
-  "تسکی به نام",
-  "تسکی به اسم",
-  "تسک به نام",
-  "تسک به اسم",
-  "تسک با نام",
-  "تسک با عنوان",
-  "تسکی",
-  "تسک",
-  "لطفا",
-];
-
-const TRAILING_FILLERS = [
-  "را حذف کن",
-  "رو حذف کن",
-  "را حذفش کن",
-  "رو حذفش کن",
-  "را حذف",
-  "رو حذف",
-  "حذف کن",
-  "حذفش کن",
-  "حذف",
-];
-
 export function normalizeSpeechText(text: string): string {
   return text
     .toLowerCase()
@@ -57,7 +22,227 @@ function normalizePhrases(phrases: string[]): string[] {
   return [...unique].sort((a, b) => b.length - a.length);
 }
 
-const NORMALIZED_DELETE_PHRASES = normalizePhrases(DELETE_PHRASES);
+/* ── smart voice intent engine ─────────────────────────────────────── │
+ * Instead of exact phrase matching, the engine:
+ *   1. detects the ACTION (delete / mark-done) through intent signals
+ *   2. strips filler + intent words to extract the task title
+ *   3. leaves fuzzy matching to findBestTaskMatch
+ */
+
+interface VoiceAction {
+  action: "delete" | "complete" | "none";
+  spokenTitle: string;
+}
+
+/**
+ * Words that tuck around / describe the target task without being part of
+ * its title. Removed token-by-token so intent words can appear anywhere.
+ */
+const TITLE_STOP_TOKENS = new Set(
+  [
+    "از",
+    "به",
+    "رو",
+    "را",
+    "که",
+    "یک",
+    "یه",
+    "اون",
+    "اونو",
+    "این",
+    "اینو",
+    "فقط",
+    "همین",
+    "تسک",
+    "تسکها",
+    "تسک هارو",
+    "وظیفه",
+    "وظیفش",
+    "وظایف",
+    "کار",
+    "کارش",
+    "کارها",
+    "همین",
+    "لطفا",
+    // delete words
+    "حذف",
+    "حذفش",
+    "حذفشون",
+    "پاک",
+    "پاکش",
+    "پاکشون",
+    "کنسل",
+    "کنسلش",
+    "لغو",
+    "لغوش",
+    "بردار",
+    "بردارش",
+    "ببر",
+    "ببرش",
+    "ببرین",
+    "بزن",
+    "بیرون",
+    "ولش",
+    "ولشش",
+    "بیخیال",
+    "بیخیالش",
+    "کن",
+    "کنم",
+    "نمیشه",
+    "نمیخوام",
+    "نمیخوامش",
+    "نمیخواد",
+    "نمیخوادش",
+    "نمیخواهم",
+    "نمیخواهمش",
+    "لازم",
+    "نیست",
+    "نیس",
+    "دیگه",
+    "دیگر",
+    "کمکی",
+    // mark-done words
+    "انجام",
+    "انجامش",
+    "دادم",
+    "دادمش",
+    "کردم",
+    "کردمش",
+    "کرده",
+    "کردن",
+    "میکنم",
+    "میکنمش",
+    "شد",
+    "شدش",
+    "شده",
+    "شده بود",
+    "تموم",
+    "تمومش",
+    "تمام",
+    "تمامش",
+    "اوکی",
+    "اوکیش",
+    "تکمیل",
+    "میدم",
+    "میسپارم",
+  ].map(normalizeSpeechText),
+);
+
+/** Strong delete signals — decisive on their own. */
+const STRONG_DELETE_SIGNALS = normalizePhrases([
+  "حذف",
+  "حذفش",
+  "حذفشون",
+  "پاک",
+  "پاکش",
+  "پاکشون",
+  "لغو",
+  "لغوش",
+  "کنسل",
+  "کنسلش",
+  "ولش",
+  "ولشش",
+  "بردار",
+  "بردارش",
+  "ببر",
+  "ببرش",
+  "بزن بیرون",
+  "بریز بیرون",
+  "بیخیال",
+  "بیخیالش",
+  "لازم نیست",
+  "لازم نیس",
+  "دیگه لازم نیست",
+  "دیگر لازم نیست",
+]);
+
+/** Weak delete signals — need an object word or a very short utterance. */
+const WEAK_DELETE_SIGNALS = normalizePhrases([
+  "نمیخوام",
+  "نمیخوامش",
+  "نمیخواد",
+  "نمیخوادش",
+  "نمیخواهم",
+  "نمیخواهمش",
+  "بریم",
+]);
+
+/** Object nouns that make a weak delete signal decisive. */
+const OBJECT_NOUNS = new Set(
+  ["تسک", "تسکها", "وظیفه", "وظایف", "کار", "کارها"].map(normalizeSpeechText),
+);
+
+/** Mark-done signals (multi-word so plain verbs aren't misread). */
+const COMPLETE_SIGNALS = normalizePhrases([
+  "انجام دادم",
+  "انجامش دادم",
+  "انجامش کردم",
+  "انجام دادمش",
+  "انجام شد",
+  "انجامش شد",
+  "تموم کردم",
+  "تمومش کردم",
+  "تموم شد",
+  "تمومش شد",
+  "تمام کردم",
+  "تمامش کردم",
+  "تمام شد",
+  "تمامش شد",
+  "تمومشون کردم",
+  "تمومشون شد",
+  "اوکی شد",
+  "اوکیش کردم",
+  "تکمیل شد",
+  "تکمیل کردم",
+  "تحویل دادم",
+  "تحویل دادمش",
+]);
+
+function tokenize(normalized: string): string[] {
+  return normalized.split(" ").filter(Boolean);
+}
+
+function hasAny(utterance: string, signals: string[]): boolean {
+  for (const signal of signals) {
+    if (utterance.includes(signal)) return true;
+  }
+  return false;
+}
+
+function stripStopTokens(normalized: string): string {
+  const kept: string[] = [];
+  for (const token of tokenize(normalized)) {
+    if (!TITLE_STOP_TOKENS.has(token)) kept.push(token);
+  }
+  return kept.join(" ");
+}
+
+/** Find the signal with the longest span covering the utterance action word. */
+export function parseTaskActionCommand(transcript: string): VoiceAction {
+  const normalized = normalizeSpeechText(transcript);
+  if (!normalized) return { action: "none", spokenTitle: "" };
+
+  const tokens = tokenize(normalized);
+
+  const hasStrongDelete = hasAny(normalized, STRONG_DELETE_SIGNALS);
+  const hasWeakDelete = hasAny(normalized, WEAK_DELETE_SIGNALS);
+  const hasObject = tokens.some((t) => OBJECT_NOUNS.has(t));
+  const hasComplete = hasAny(normalized, COMPLETE_SIGNALS);
+
+  // Prefer strong delete over complete (e.g. "تموم کن" can't be both).
+  const isDelete =
+    hasStrongDelete || (hasWeakDelete && (hasObject || tokens.length <= 3));
+
+  if (isDelete) {
+    return { action: "delete", spokenTitle: stripStopTokens(normalized) };
+  }
+
+  if (hasComplete) {
+    return { action: "complete", spokenTitle: stripStopTokens(normalized) };
+  }
+
+  return { action: "none", spokenTitle: "" };
+}
 
 export interface DeleteCommand {
   isDelete: boolean;
@@ -65,41 +250,24 @@ export interface DeleteCommand {
 }
 
 export function parseDeleteCommand(transcript: string): DeleteCommand {
-  const normalized = normalizeSpeechText(transcript);
-  if (!normalized) {
-    return { isDelete: false, spokenTitle: "" };
-  }
+  const result = parseTaskActionCommand(transcript);
+  return {
+    isDelete: result.action === "delete",
+    spokenTitle: result.spokenTitle,
+  };
+}
 
-  for (const phrase of NORMALIZED_DELETE_PHRASES) {
-    if (normalized.endsWith(phrase)) {
-      let spokenTitle = normalized
-        .slice(0, normalized.length - phrase.length)
-        .trim();
+export interface CompleteCommand {
+  isComplete: boolean;
+  spokenTitle: string;
+}
 
-      for (const filler of TRAILING_FILLERS) {
-        const normalizedFiller = normalizeSpeechText(filler);
-        if (spokenTitle.endsWith(normalizedFiller)) {
-          spokenTitle = spokenTitle
-            .slice(0, spokenTitle.length - normalizedFiller.length)
-            .trim();
-        }
-      }
-
-      let cleaned = spokenTitle;
-      for (const filler of LEADING_FILLERS) {
-        const normalizedFiller = normalizeSpeechText(filler);
-        if (cleaned === normalizedFiller) {
-          cleaned = "";
-        } else if (cleaned.startsWith(`${normalizedFiller} `)) {
-          cleaned = cleaned.slice(normalizedFiller.length).trim();
-        }
-      }
-
-      return { isDelete: true, spokenTitle: cleaned };
-    }
-  }
-
-  return { isDelete: false, spokenTitle: "" };
+export function parseCompleteCommand(transcript: string): CompleteCommand {
+  const result = parseTaskActionCommand(transcript);
+  return {
+    isComplete: result.action === "complete",
+    spokenTitle: result.spokenTitle,
+  };
 }
 
 function wordDiceCoefficient(first: string, second: string): number {
@@ -147,15 +315,29 @@ function titleSimilarity(spokenTitle: string, noteTitle: string): number {
   if (!spoken || !title) return 0;
 
   if (title.includes(spoken)) return 1;
-  if (spoken.includes(title)) return 0.9;
+  if (spoken.includes(title)) return 0.92;
+
+  const spokenTokens = tokenize(spoken).filter((t) => t.length >= 2);
+  const titleTokens = tokenize(title).filter((t) => t.length >= 2);
+  if (spokenTokens.length === 0 || titleTokens.length === 0) return 0;
+
+  // all spoken tokens appear inside the title (any position)
+  let tokenHits = 0;
+  for (const st of spokenTokens) {
+    if (titleTokens.some((tt) => tt.includes(st) || st.includes(tt))) {
+      tokenHits += 1;
+    }
+  }
+  const containment = tokenHits / spokenTokens.length;
 
   const wordDice = wordDiceCoefficient(spoken, title);
   const charDice = charBigramDiceCoefficient(spoken, title);
+  const blended = Math.max(0.55 * wordDice + 0.45 * charDice, charDice);
 
-  return Math.max(wordDice, charDice);
+  return Math.max(blended, 0.6 * containment + 0.4 * wordDice);
 }
 
-export const MATCH_THRESHOLD = 0.55;
+export const MATCH_THRESHOLD = 0.5;
 
 export function findBestTaskMatch(
   tasks: Task[],
@@ -166,7 +348,11 @@ export function findBestTaskMatch(
   let bestMatch: Task | null = null;
   let bestScore = 0;
 
-  for (const task of tasks) {
+  const uniqueTasks = tasks.filter(
+    (task, index, array) => array.findIndex((t) => t.id === task.id) === index,
+  );
+
+  for (const task of uniqueTasks) {
     const score = titleSimilarity(spokenTitle, task.title);
     if (score > bestScore) {
       bestScore = score;
@@ -175,6 +361,74 @@ export function findBestTaskMatch(
   }
 
   return bestScore >= MATCH_THRESHOLD ? bestMatch : null;
+}
+
+/* ── fullscreen intent ──────────────────────────────────────────────── │
+ * Understands any phrasing that asks for / against fullscreen view.
+ */
+
+const FULLSCREEN_WORDS = normalizePhrases([
+  "تمام صفحه",
+  "تموم صفحه",
+  "تام صفحه",
+  "تمام صفحه کردن",
+  "حالت تمام صفحه",
+  "نمایش تمام صفحه",
+  "تمام صفحه کن",
+  "فول اسکرین",
+  "فولسکرین",
+  "فل اسکرین",
+  "فول اسکرین بشه",
+  "فول اسکرین کن",
+  "fullscreen",
+  "full screen",
+  "حالت نمایش کامل",
+  "نمایش کامل",
+  "تمام صفحه نمایش",
+]);
+
+const FULLSCREEN_EXIT_MODIFIERS = normalizePhrases([
+  "خروج",
+  "خارج",
+  "بستن",
+  "ببند",
+  "بسته",
+  "کنسل",
+  "لغو",
+  "نشو",
+  "نکن",
+  "نخواه",
+  "حالت عادی",
+  "برگرد",
+  "برگردان",
+  "عادی کن",
+  "بیا پایین",
+  "بیار پایین",
+  "تمام نشو",
+]);
+
+export interface FullscreenCommand {
+  isFullscreen: boolean;
+  request: "enter" | "exit" | "none";
+}
+
+export function parseFullscreenCommand(transcript: string): FullscreenCommand {
+  const normalized = normalizeSpeechText(transcript);
+  if (!normalized) return { isFullscreen: false, request: "none" };
+
+  const hasFullscreenWord = FULLSCREEN_WORDS.some((word) =>
+    normalized.includes(word),
+  );
+  if (!hasFullscreenWord) return { isFullscreen: false, request: "none" };
+
+  const wantsExit = FULLSCREEN_EXIT_MODIFIERS.some((modifier) =>
+    normalized.includes(modifier),
+  );
+
+  return {
+    isFullscreen: true,
+    request: wantsExit ? "exit" : "enter",
+  };
 }
 
 const AI_MESSAGE_PHRASES = normalizePhrases([
