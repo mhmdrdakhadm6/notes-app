@@ -1,4 +1,4 @@
-import type { Task } from "../types/nexdo";
+import type { Page, Task } from "../types/nexdo";
 
 export function normalizeSpeechText(text: string): string {
   return text
@@ -534,6 +534,105 @@ export function parseSayCommand(transcript: string): SayCommand {
 }
 
 const LINE_BREAK_WORDS = ["بعدی", "بعدش"].map(normalizeSpeechText);
+
+/* ── tab navigation intent ──────────────────────────────────────────── │
+ * Understands "take me to <page>" in many phrasings and maps it to a Page.
+ * Note: «ببر»/«برو» are also STRONG_DELETE_SIGNALS, so callers must route
+ * navigation BEFORE task actions.
+ */
+
+const NAVIGATE_SIGNALS = normalizePhrases([
+  "برو به",
+  "برو توی",
+  "برو",
+  "ببر به",
+  "ببر توی",
+  "منو ببر به",
+  "منو ببر توی",
+  "منو ببر",
+  "ببرم به",
+  "ببرم توی",
+  "بریم به",
+  "بریم توی",
+  "بریم",
+  "باز کن",
+  "وارد شو",
+  "راهنمایی کن به",
+  "سوییچ کن به",
+  "سوییچ به",
+]);
+
+const PAGE_KEYWORDS: Record<Page, string[]> = {
+  dashboard: normalizePhrases([
+    "داشبورد",
+    "خانه",
+    "صفحه اصلی",
+    "خونه",
+    "اولین صفحه",
+  ]),
+  tasks: normalizePhrases([
+    "وظایف",
+    "تسکها",
+    "تسک ها",
+    "تسکهارو",
+    "کارهام",
+    "وظیفه های من",
+  ]),
+  calendar: normalizePhrases(["تقویم", "تقویمم", "برنامه هفته", "روزها"]),
+  projects: normalizePhrases(["پروژهها", "پروژه ها", "پروژههام", "پروژه های من"]),
+  notes: normalizePhrases(["یادداشتها", "یادداشت ها", "یادداشتم", "نوتها", "نوت ها"]),
+  analytics: normalizePhrases(["تحلیلها", "تحلیل ها", "آمار", "آنالیز", "گزارش", "راندمان"]),
+  settings: normalizePhrases(["تنظیمات", "ستینگ", "تنظیمات برنامه"]),
+  help: normalizePhrases(["راهنما", "پشتیبانی", "کمک", "راهنما و پشتیبانی"]),
+  profile: normalizePhrases(["پروفایل", "حساب", "حساب کاربری", "حسابم"]),
+};
+
+export interface NavigateCommand {
+  isNavigate: boolean;
+  page: Page | null;
+}
+
+export function parseNavigateCommand(transcript: string): NavigateCommand {
+  const normalized = normalizeSpeechText(transcript);
+  if (!normalized) return { isNavigate: false, page: null };
+
+  const hasSignal = NAVIGATE_SIGNALS.some((signal) =>
+    normalized.includes(signal),
+  );
+  if (!hasSignal) return { isNavigate: false, page: null };
+
+  let bestPage: Page | null = null;
+  for (const [page, keywords] of Object.entries(PAGE_KEYWORDS) as [
+    Page,
+    string[],
+  ][]) {
+    if (keywords.some((keyword) => normalized.includes(keyword))) {
+      bestPage = page;
+      break;
+    }
+  }
+
+  return { isNavigate: bestPage !== null, page: bestPage };
+}
+
+/** Map an AI/voice label (English key or Persian keyword) to a Page. */
+export function matchPageLabel(label: string): Page | null {
+  const normalizedLabel = normalizeSpeechText(label);
+  if (!normalizedLabel) return null;
+
+  const directKey = normalizedLabel as Page;
+  if (directKey in PAGE_KEYWORDS) return directKey;
+
+  for (const [page, keywords] of Object.entries(PAGE_KEYWORDS) as [
+    Page,
+    string[],
+  ][]) {
+    if (keywords.some((keyword) => normalizedLabel.includes(keyword))) {
+      return page;
+    }
+  }
+  return null;
+}
 
 export function applyLineBreaks(text: string): string {
   const words = text

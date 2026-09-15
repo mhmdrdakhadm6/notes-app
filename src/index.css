@@ -193,10 +193,10 @@ body {
 
 @media (max-width: 767px) {
   .nexdo .nexdo-dropdown-centered {
-    position: fixed;
+    position: absolute;
     left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
+    top: calc(100% + 8px);
     width: min(calc(100vw - 2rem), 24rem);
     max-height: 72vh;
     overflow-y: auto;

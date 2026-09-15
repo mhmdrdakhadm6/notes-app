@@ -7,15 +7,32 @@ import { useNexdo } from "../contexts/NexdoContext";
 import {
   applyLineBreaks,
   findBestTaskMatch,
+  matchPageLabel,
   parseAIMessageCommand,
   parseFullscreenCommand,
+  parseNavigateCommand,
   parseSayCommand,
   parseTaskActionCommand,
 } from "../utils/noteMatch";
 import { classifyVoiceIntent, hasAIApiKey } from "../utils/aiIntent";
+import { useWakeWord } from "../hooks/useWakeWord";
+import { useLocalStorage } from "../hooks/useLocalStorage";
+import type { Page } from "../types/nexdo";
 
 const MAX_TITLE_LENGTH = 20;
 const SILENCE_TIMEOUT = 3000;
+
+const PAGE_TITLES: Record<Page, string> = {
+  dashboard: "داشبورد",
+  tasks: "وظایف من",
+  calendar: "تقویم",
+  projects: "پروژه‌ها",
+  notes: "یادداشت‌ها",
+  analytics: "تحلیل‌ها",
+  settings: "تنظیمات",
+  help: "راهنما و پشتیبانی",
+  profile: "پروفایل",
+};
 
 const LANGUAGES = [
   { value: "fa-IR", label: "فارسی" },
@@ -32,12 +49,13 @@ function buildTaskTitle(text: string): string {
 
 export default function AIVoiceNoteModal() {
   const { sendToAI } = useAIChat();
-  const { addTask, tasks, deleteTask, toggleComplete } = useNexdo();
+  const { addTask, tasks, deleteTask, toggleComplete, setPage } = useNexdo();
   const [isOpen, setIsOpen] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
   const [selectedLang, setSelectedLang] = useState("fa-IR");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [wakeEnabled, setWakeEnabled] = useLocalStorage("nexdo-wakeword", false);
 
   const finalTextRef = useRef("");
   const cancelRef = useRef(false);
@@ -140,6 +158,7 @@ export default function AIVoiceNoteModal() {
     | { kind: "ai_chat"; message: string }
     | { kind: "say"; message: string }
     | { kind: "fullscreen"; request: "enter" | "exit" }
+    | { kind: "navigate"; page: Page }
     | { kind: "task_action"; action: "delete" | "complete"; spokenTitle: string }
     | { kind: "add"; text: string };
 
@@ -160,6 +179,11 @@ export default function AIVoiceNoteModal() {
       fullscreenCommand.request !== "none"
     ) {
       return { kind: "fullscreen", request: fullscreenCommand.request };
+    }
+
+    const navigateCommand = parseNavigateCommand(spokenText);
+    if (navigateCommand.isNavigate && navigateCommand.page) {
+      return { kind: "navigate", page: navigateCommand.page };
     }
 
     const actionCommand = parseTaskActionCommand(spokenText);
@@ -196,6 +220,13 @@ export default function AIVoiceNoteModal() {
       case "fullscreen":
         void handleFullscreen(command.request);
         return;
+      case "navigate":
+        setPage(command.page);
+        toast.success(`به تب «${PAGE_TITLES[command.page]}» بردی`, {
+          duration: 2000,
+        });
+        resetAndClose();
+        return;
       case "task_action":
         handleVoiceAction(command);
         return;
@@ -231,6 +262,13 @@ export default function AIVoiceNoteModal() {
             request: ai.action === "fullscreen_enter" ? "enter" : "exit",
           });
           return;
+        }
+        if (ai.action === "navigate") {
+          const page = matchPageLabel(ai.title);
+          if (page) {
+            dispatchCommand({ kind: "navigate", page });
+            return;
+          }
         }
         if (ai.action === "ai_chat") {
           dispatchCommand({ kind: "ai_chat", message: ai.message });
@@ -285,6 +323,27 @@ export default function AIVoiceNoteModal() {
         setError("صدایی شنیده نشد. دوباره تلاش کنید.");
       } else if (code !== "aborted") {
         setError("تبدیل گفتار به متن متوقف شد. لطفاً دوباره تلاش کنید.");
+      }
+    },
+  });
+
+  const wakePaused = isOpen || isListening || isAnalyzing;
+  const { isActive: wakeActive } = useWakeWord({
+    enabled: wakeEnabled && !wakePaused,
+    lang: selectedLang,
+    onWake: () => {
+      cancelRef.current = false;
+      finalTextRef.current = "";
+      setTranscript("");
+      setError("");
+      setIsOpen(true);
+    },
+    onError: (code) => {
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        setWakeEnabled(false);
+        toast.error("دسترسی میکروفون برای فرمان «هی مکس» داده نشد", {
+          duration: 2600,
+        });
       }
     },
   });
@@ -428,6 +487,47 @@ export default function AIVoiceNoteModal() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div
+                className="voice-stagger flex items-center justify-between rounded-xl border border-border-precision bg-surface-container-lowest p-2 px-3"
+                style={{ animationDelay: "150ms" }}
+              >
+                <span className="flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
+                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-container/25 text-accent-glow">
+                    <Mic size={14} strokeWidth={2.4} />
+                    {isSupported && wakeEnabled && wakeActive && (
+                      <span
+                        aria-hidden
+                        className="absolute -end-0.5 -top-0.5 h-2 w-2 animate-ping rounded-full bg-accent-electric"
+                      />
+                    )}
+                  </span>
+                  فرمان «هی مکس»
+                </span>
+                {isSupported ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={wakeEnabled}
+                    onClick={() => setWakeEnabled((v) => !v)}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
+                      wakeEnabled
+                        ? "bg-accent-gradient shadow-glow"
+                        : "bg-surface-container-highest"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-200 ${
+                        wakeEnabled ? "start-[1.375rem]" : "start-0.5"
+                      }`}
+                    />
+                  </button>
+                ) : (
+                  <span className="text-[10px] font-medium text-text-muted">
+                    مرورگر پشتیبانی نمی‌کند
+                  </span>
+                )}
               </div>
 
               <div

@@ -12,6 +12,7 @@ export interface AIIntentEntry {
     | "complete_task"
     | "fullscreen_enter"
     | "fullscreen_exit"
+    | "navigate"
     | "ai_chat"
     | "say"
     | "other";
@@ -41,6 +42,7 @@ const SYSTEM_PROMPT = `
 - complete_task: می‌خواهد تسک را انجام‌شده علامت بزند. نمونه: «جلسه کاری را انجام دادم»، «تحویل پروژه تمام شد»، «خرید نان اوکی شد».
 - fullscreen_enter: می‌خواهد سایت به حالت تمام‌صفحه برود. نمونه: «سایت را تمام‌صفحه کن»، «برو فول اسکرین».
 - fullscreen_exit: می‌خواهد از تمام‌صفحه خارج شود. نمونه: «از حالت تمام‌صفحه خارج شو»، «تمام‌صفحه را ببند».
+- navigate: می‌خواهد به یک تب یا صفحه از سایت برود. نمونه: «منو ببر به تقویم»، «برو به وظایف»، «تب تنظیمات را باز کن»، «بریم آمار». عنوان تب را در title بگذار (فقط یکی از این شناسه‌ها: dashboard, tasks, calendar, projects, notes, analytics, settings, help, profile).
 - ai_chat: می‌خواهد پیامی برای هوش مصنوعی بفرستد. نمونه: «پیام به AI».
 - say: عبارت درخواستی است که باید گفته شود. نمونه: «بگو صبح بخیر».
 - other: هیچ‌کدام.
@@ -48,6 +50,7 @@ const SYSTEM_PROMPT = `
 قوانین:
 - برای delete_task و complete_task: عنوان دقیق تسک را در title بگذار (بدون کلمات «حذف/پاک/کنسل/انجام/تسک/را/رو» و امثال آن).
 - برای add_task: خلاصه تمیز تسک را در title بگذار.
+- برای navigate: فقط یکی از شناسه‌های تب را در title بگذار (dashboard, tasks, calendar, projects, notes, analytics, settings, help, profile).
 - برای ai_chat و say: متن کامل را در message بگذار.
 - وقتی مطمئن نیستی، add_task.
 
