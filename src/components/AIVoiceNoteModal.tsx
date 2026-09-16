@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import { Bot, CheckCircle2, Languages, Mic, MicOff, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Bot, Mic, MicOff, Sparkles, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useVoiceSearch } from "../hooks/useVoiceSearch";
 import { useAIChat } from "../contexts/AIChatContext";
 import { useNexdo } from "../contexts/NexdoContext";
 import {
   applyLineBreaks,
+  findBestProjectMatch,
   findBestTaskMatch,
   matchPageLabel,
   parseAIMessageCommand,
   parseFullscreenCommand,
   parseNavigateCommand,
+  parseProjectReference,
   parseSayCommand,
   parseTaskActionCommand,
 } from "../utils/noteMatch";
 import { classifyVoiceIntent, hasAIApiKey } from "../utils/aiIntent";
-import { useWakeWord } from "../hooks/useWakeWord";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import type { Page } from "../types/nexdo";
 
 const MAX_TITLE_LENGTH = 20;
@@ -34,11 +34,6 @@ const PAGE_TITLES: Record<Page, string> = {
   profile: "پروفایل",
 };
 
-const LANGUAGES = [
-  { value: "fa-IR", label: "فارسی" },
-  { value: "en-US", label: "English" },
-];
-
 function buildTaskTitle(text: string): string {
   const normalized = text.trim().replace(/\s+/g, " ");
   if (normalized.length <= MAX_TITLE_LENGTH) {
@@ -49,40 +44,79 @@ function buildTaskTitle(text: string): string {
 
 export default function AIVoiceNoteModal() {
   const { sendToAI } = useAIChat();
-  const { addTask, tasks, deleteTask, toggleComplete, setPage } = useNexdo();
+  const { addTask, tasks, deleteTask, toggleComplete, setPage, projects } =
+    useNexdo();
   const [isOpen, setIsOpen] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
-  const [selectedLang, setSelectedLang] = useState("fa-IR");
+  const selectedLang = "fa-IR";
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [wakeEnabled, setWakeEnabled] = useLocalStorage("nexdo-wakeword", false);
+  const [closing, setClosing] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [dragY, setDragY] = useState(0);
 
   const finalTextRef = useRef("");
   const cancelRef = useRef(false);
+  const closingRef = useRef(false);
 
-  const resetAndClose = () => {
+  const CLOSE_TIMEOUT_MS = 340;
+  const DRAG_CLOSE_THRESHOLD = 120;
+  const closeTimerRef = useRef<number | null>(null);
+  const dragStartYRef = useRef<number | null>(null);
+
+  const finalizeClose = () => {
     finalTextRef.current = "";
     setTranscript("");
     setError("");
+    setClosing(false);
+    setDragY(0);
     setIsOpen(false);
+    closingRef.current = false;
+    closeTimerRef.current = null;
   };
 
-  const addTaskAndClose = (spokenText: string) => {
-    const description = applyLineBreaks(spokenText);
+  const resetAndClose = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    closeTimerRef.current = window.setTimeout(finalizeClose, CLOSE_TIMEOUT_MS);
+  };
+
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const addTaskAndClose = (spokenText: string, opts?: { raw?: string }) => {
+    const raw = opts?.raw || spokenText;
+    const ref = parseProjectReference(raw);
+    const titleText =
+      ref.hasProject && raw === spokenText ? ref.cleanTranscript : spokenText;
+    const description = applyLineBreaks(titleText);
     if (!description) return;
     const title = buildTaskTitle(description);
+    const project = ref.hasProject
+      ? findBestProjectMatch(projects, ref.projectName)
+      : null;
     addTask({
       title,
       description,
       priority: "medium",
       dueDate: null,
       dueTime: null,
-      projectId: null,
+      projectId: project?.id ?? null,
       tags: [],
     });
-    toast.success(`تسک «${title}» ساخته شد و در تب «وظایف» است`, {
-      duration: 2600,
-    });
+    toast.success(
+      project
+        ? `تسک «${title}» به پروژه «${project.name}» اضافه شد`
+        : `تسک «${title}» ساخته شد و در تب «وظایف» است`,
+      { duration: 2600 },
+    );
     resetAndClose();
   };
 
@@ -160,7 +194,7 @@ export default function AIVoiceNoteModal() {
     | { kind: "fullscreen"; request: "enter" | "exit" }
     | { kind: "navigate"; page: Page }
     | { kind: "task_action"; action: "delete" | "complete"; spokenTitle: string }
-    | { kind: "add"; text: string };
+    | { kind: "add"; text: string; raw?: string };
 
   const mapLocalCommand = (spokenText: string): RoutedCommand => {
     const aiMessage = parseAIMessageCommand(spokenText);
@@ -195,7 +229,7 @@ export default function AIVoiceNoteModal() {
       };
     }
 
-    return { kind: "add", text: spokenText };
+    return { kind: "add", text: spokenText, raw: spokenText };
   };
 
   const dispatchCommand = (command: RoutedCommand) => {
@@ -231,7 +265,7 @@ export default function AIVoiceNoteModal() {
         handleVoiceAction(command);
         return;
       case "add":
-        addTaskAndClose(command.text);
+        addTaskAndClose(command.text, { raw: command.raw });
         return;
       default:
         return;
@@ -279,7 +313,11 @@ export default function AIVoiceNoteModal() {
           return;
         }
         if (ai.action === "add_task") {
-          dispatchCommand({ kind: "add", text: ai.title || spokenText });
+          dispatchCommand({
+            kind: "add",
+            text: ai.title || spokenText,
+            raw: spokenText,
+          });
           return;
         }
       }
@@ -327,27 +365,6 @@ export default function AIVoiceNoteModal() {
     },
   });
 
-  const wakePaused = isOpen || isListening || isAnalyzing;
-  const { isActive: wakeActive } = useWakeWord({
-    enabled: wakeEnabled && !wakePaused,
-    lang: selectedLang,
-    onWake: () => {
-      cancelRef.current = false;
-      finalTextRef.current = "";
-      setTranscript("");
-      setError("");
-      setIsOpen(true);
-    },
-    onError: (code) => {
-      if (code === "not-allowed" || code === "service-not-allowed") {
-        setWakeEnabled(false);
-        toast.error("دسترسی میکروفون برای فرمان «هی مکس» داده نشد", {
-          duration: 2600,
-        });
-      }
-    },
-  });
-
   const handleStartListening = () => {
     if (!isSupported) {
       setError(
@@ -370,13 +387,51 @@ export default function AIVoiceNoteModal() {
     resetAndClose();
   };
 
+  const isMobileView = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+
+  const handleDragStart = (event: ReactPointerEvent<HTMLElement>) => {
+    if (!isMobileView() || closingRef.current) return;
+    if (event.pointerType !== "touch") return;
+    dragStartYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleDragMove = (event: ReactPointerEvent<HTMLElement>) => {
+    if (dragStartYRef.current === null || closingRef.current) return;
+    if (event.pointerType !== "touch") return;
+    const dy = event.clientY - dragStartYRef.current;
+    if (dy <= 0) {
+      setDragY(0);
+      return;
+    }
+    const resisted = Math.pow(dy, 0.75) * 1.4;
+    setDragY(Math.round(resisted));
+  };
+
+  const handleDragEnd = () => {
+    if (dragStartYRef.current === null || closingRef.current) return;
+    const shouldClose = dragY >= DRAG_CLOSE_THRESHOLD;
+    dragStartYRef.current = null;
+    setDragY(0);
+    if (shouldClose) {
+      cancelRef.current = true;
+      stopListening();
+      resetAndClose();
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
+    setEntered(false);
     const openTimer = window.setTimeout(handleStartListening, 250);
+    const enteredTimer = window.setTimeout(() => setEntered(true), 680);
 
     return () => {
       window.clearTimeout(openTimer);
+      window.clearTimeout(enteredTimer);
       cancelRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -404,15 +459,41 @@ export default function AIVoiceNoteModal() {
       </button>
 
       {isOpen && (
-        <div className="voice-overlay-in fixed inset-0 z-50 flex items-end justify-center bg-canvas-base/80 backdrop-blur-xl md:items-center md:px-4 md:py-6">
+        <div
+          className={`fixed inset-0 z-50 flex items-end justify-center bg-canvas-base/80 backdrop-blur-xl md:items-center md:px-4 md:py-6 ${
+            closing ? "voice-overlay-out" : "voice-overlay-in"
+          }`}
+        >
           <section
             dir="rtl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="ai-voice-title"
-            className="voice-sheet-in relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-border-precision bg-surface-card shadow-[0_-24px_70px_rgba(0,0,0,0.55)] md:max-h-[85vh] md:rounded-3xl md:shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
+            style={{
+              transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+              transition:
+                dragY > 0
+                  ? "none"
+                  : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            className={`relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-border-precision bg-surface-card shadow-[0_-24px_70px_rgba(0,0,0,0.55)] md:max-h-[85vh] md:rounded-3xl md:shadow-[0_30px_90px_rgba(0,0,0,0.65)] ${
+              closing
+                ? "voice-sheet-out"
+                : dragY > 0
+                  ? ""
+                  : entered
+                    ? ""
+                    : "voice-sheet-in"
+            }`}
           >
-            <header className="relative shrink-0 border-b border-border-precision bg-gradient-to-b from-primary-container/15 via-primary-container/5 to-transparent">
+            <header
+              onPointerDown={handleDragStart}
+              onPointerMove={handleDragMove}
+              onPointerUp={handleDragEnd}
+              onPointerCancel={handleDragEnd}
+              style={{ touchAction: isMobileView() ? "none" : undefined }}
+              className="relative shrink-0 select-none border-b border-border-precision bg-gradient-to-b from-primary-container/15 via-primary-container/5 to-transparent"
+            >
               <div
                 aria-hidden
                 className="mx-auto mt-2 mb-1.5 h-1.5 w-12 cursor-grab rounded-full bg-outline-variant/60 md:hidden"
@@ -451,88 +532,8 @@ export default function AIVoiceNoteModal() {
 
             <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:gap-4 md:p-5">
               <div
-                className="voice-stagger flex items-center gap-2 rounded-xl border border-primary-container/30 bg-primary-container/10 p-2 px-3"
-                style={{ animationDelay: "60ms" }}
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-container/25 text-accent-glow">
-                  <CheckCircle2 size={14} strokeWidth={2.4} />
-                </span>
-                <p className="text-[11px] font-semibold text-text-secondary">
-                  این گفتار به‌صورت تسک در تب «وظایف» ثبت می‌شود
-                </p>
-              </div>
-
-              <div
-                className="voice-stagger flex items-center justify-between rounded-xl border border-border-precision bg-surface-container-lowest p-2 px-3"
-                style={{ animationDelay: "120ms" }}
-              >
-                <span className="flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
-                  <Languages size={14} className="text-accent-glow" />
-                  زبان گفتار
-                </span>
-                <div className="flex gap-1 rounded-lg border border-border-precision bg-surface-intermediate p-1">
-                  {LANGUAGES.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      disabled={isListening}
-                      onClick={() => setSelectedLang(option.value)}
-                      className={`flex h-7 items-center justify-center rounded-md px-3.5 text-[11px] font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                        selectedLang === option.value
-                          ? "bg-primary-container text-on-primary-container shadow-lg shadow-primary-container/30"
-                          : "text-text-muted hover:text-text-primary"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                className="voice-stagger flex items-center justify-between rounded-xl border border-border-precision bg-surface-container-lowest p-2 px-3"
-                style={{ animationDelay: "150ms" }}
-              >
-                <span className="flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
-                  <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-container/25 text-accent-glow">
-                    <Mic size={14} strokeWidth={2.4} />
-                    {isSupported && wakeEnabled && wakeActive && (
-                      <span
-                        aria-hidden
-                        className="absolute -end-0.5 -top-0.5 h-2 w-2 animate-ping rounded-full bg-accent-electric"
-                      />
-                    )}
-                  </span>
-                  فرمان «هی مکس»
-                </span>
-                {isSupported ? (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={wakeEnabled}
-                    onClick={() => setWakeEnabled((v) => !v)}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
-                      wakeEnabled
-                        ? "bg-accent-gradient shadow-glow"
-                        : "bg-surface-container-highest"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-200 ${
-                        wakeEnabled ? "start-[1.375rem]" : "start-0.5"
-                      }`}
-                    />
-                  </button>
-                ) : (
-                  <span className="text-[10px] font-medium text-text-muted">
-                    مرورگر پشتیبانی نمی‌کند
-                  </span>
-                )}
-              </div>
-
-              <div
                 className="voice-stagger relative flex flex-col items-center gap-2.5 overflow-hidden rounded-xl border border-border-precision bg-surface-container-lowest/70 px-4 pb-4 pt-5"
-                style={{ animationDelay: "180ms" }}
+                style={{ animationDelay: "60ms" }}
               >
                 <div
                   aria-hidden
@@ -635,7 +636,7 @@ export default function AIVoiceNoteModal() {
                     type="button"
                     onClick={stopListening}
                     disabled={!hasTranscript || isAnalyzing}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic size={16} strokeWidth={2.4} />
                     پایان و اجرای فرمان
@@ -645,21 +646,12 @@ export default function AIVoiceNoteModal() {
                     type="button"
                     onClick={handleStartListening}
                     disabled={isAnalyzing}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent-gradient px-4 text-sm font-bold text-on-primary-container shadow-glow transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic size={16} strokeWidth={2.4} />
                     شروع صحبت
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={isAnalyzing}
-                  className="flex h-10 shrink-0 items-center justify-center rounded-xl border border-border-precision bg-surface-container px-4 text-sm font-semibold text-text-secondary transition hover:border-outline-variant hover:text-text-primary active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  انصراف
-                </button>
               </div>
 
               <p

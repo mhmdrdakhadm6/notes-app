@@ -193,10 +193,10 @@ body {
 
 @media (max-width: 767px) {
   .nexdo .nexdo-dropdown-centered {
-    position: absolute;
+    position: fixed;
+    top: calc(3.5rem + 10px);
     left: 50%;
     transform: translateX(-50%);
-    top: calc(100% + 8px);
     width: min(calc(100vw - 2rem), 24rem);
     max-height: 72vh;
     overflow-y: auto;
@@ -259,6 +259,26 @@ body {
   }
 }
 
+@keyframes nexdoOverlayOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes nexdoSheetOut {
+  to {
+    opacity: 0;
+    transform: translateY(115%);
+  }
+}
+
+@keyframes nexdoSheetCardOut {
+  to {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+}
+
 @keyframes nexdoStaggerIn {
   from {
     opacity: 0;
@@ -314,9 +334,20 @@ body {
   animation: nexdoOverlayIn 240ms ease-out both;
 }
 
+.nexdo .voice-overlay-out,
+.voice-overlay-out {
+  animation: nexdoOverlayOut 280ms ease-in both;
+}
+
 .nexdo .voice-sheet-in,
 .voice-sheet-in {
   animation: nexdoSheetIn 620ms cubic-bezier(0.22, 1.18, 0.36, 1) both;
+  will-change: transform, opacity;
+}
+
+.nexdo .voice-sheet-out,
+.voice-sheet-out {
+  animation: nexdoSheetOut 340ms cubic-bezier(0.4, 0, 1, 1) both;
   will-change: transform, opacity;
 }
 
@@ -324,6 +355,11 @@ body {
   .nexdo .voice-sheet-in,
   .voice-sheet-in {
     animation: nexdoSheetCardIn 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .nexdo .voice-sheet-out,
+  .voice-sheet-out {
+    animation: nexdoSheetCardOut 260ms cubic-bezier(0.4, 0, 1, 1) both;
   }
 }
 

@@ -1,4 +1,4 @@
-import type { Page, Task } from "../types/nexdo";
+import type { Page, Project, Task } from "../types/nexdo";
 
 export function normalizeSpeechText(text: string): string {
   return text
@@ -632,6 +632,183 @@ export function matchPageLabel(label: string): Page | null {
     }
   }
   return null;
+}
+
+/* ── add-to-project intent ──────────────────────────────────────────── │
+ * Understands "add this task to project X" in many phrasings, extracts the
+ * project name, and returns a cleaned transcript without the clause.
+ */
+
+/** Words that end the project name after «پروژه». */
+const PROJECT_NAME_STOP_WORDS = new Set(
+  [
+    "اضافه",
+    "اضافه کن",
+    "اضافه بشه",
+    "اضافه کنم",
+    "بشه",
+    "بشود",
+    "کن",
+    "کنم",
+    "بذار",
+    "بگذار",
+    "بزار",
+    "بریز",
+    "بریزم",
+    "این",
+    "اون",
+    "یه",
+    "یک",
+    "تسک",
+    "تسکی",
+    "کار",
+    "وظیفه",
+    "که",
+  ].map(normalizeSpeechText),
+);
+
+/** Words that tuck around the target project without being part of its name. */
+const PROJECT_CLAUDE_FILLERS = new Set(
+  ["به", "برای", "در", "تو", "توی", "داخل", "بیار", "ببرم", "ببر"].map(
+    normalizeSpeechText,
+  ),
+);
+
+export interface ProjectReference {
+  hasProject: boolean;
+  projectName: string;
+  cleanTranscript: string;
+}
+
+export function parseProjectReference(transcript: string): ProjectReference {
+  const original = transcript.trim();
+  const normalized = normalizeSpeechText(original);
+  if (!normalized) {
+    return { hasProject: false, projectName: "", cleanTranscript: original };
+  }
+
+  const originalWords = original.split(/\s+/).filter(Boolean);
+  const normalizedWords = normalized.split(" ").filter(Boolean);
+
+  // Locate the «پروژه» keyword (last occurrence wins for "add to project X").
+  let projectIndex = -1;
+  for (let i = 0; i < normalizedWords.length; i += 1) {
+    if (normalizedWords[i] === "پروژه") projectIndex = i;
+  }
+  if (projectIndex === -1) {
+    return { hasProject: false, projectName: "", cleanTranscript: original };
+  }
+
+  // Collect the project name = tokens after «پروژه» until a stop word.
+  const nameTokens: string[] = [];
+  for (let i = projectIndex + 1; i < normalizedWords.length; i += 1) {
+    const token = normalizedWords[i];
+    if (
+      PROJECT_NAME_STOP_WORDS.has(token) ||
+      PROJECT_CLAUDE_FILLERS.has(token)
+    ) {
+      break;
+    }
+    nameTokens.push(token);
+  }
+  const projectName = nameTokens.join(" ").trim();
+  const pluralSuffix = nameTokens.length === 1 && /^(ها|هام|های|هاا)$/.test(nameTokens[0]);
+  if (!nameTokens.length || pluralSuffix || projectName.length < 2) {
+    return { hasProject: false, projectName: "", cleanTranscript: original };
+  }
+
+  // Remove the «پروژه X» clause from the original wording.
+  const cleanedWords: string[] = [];
+  let consumed = 0;
+  let removedClause = false;
+  for (let i = 0; i < originalWords.length; i += 1) {
+    const word = normalizeSpeechText(originalWords[i]);
+    if (!removedClause && consumed === 0 && word === "پروژه") {
+      removedClause = true;
+      consumed = 1;
+      continue;
+    }
+    if (removedClause && consumed <= nameTokens.length) {
+      consumed += 1;
+      continue;
+    }
+    if (removedClause && consumed > nameTokens.length) {
+      removedClause = false;
+      consumed = 0;
+    }
+    cleanedWords.push(originalWords[i]);
+  }
+
+  const cleanTranscript = stripAddFillers(cleanedWords.join(" ").trim());
+  return { hasProject: true, projectName, cleanTranscript };
+}
+
+/** Words dropped from the cleaned transcript left after the project clause. */
+const ADD_CLAUSE_FILLERS = new Set(
+  [
+    "این",
+    "اینو",
+    "اینکه",
+    "یه",
+    "یک",
+    "یکی",
+    "تسک",
+    "تسکی",
+    "تسکها",
+    "رو",
+    "را",
+    "که",
+    "اضافه",
+    "اضافه کن",
+    "اضافه کنم",
+    "کن",
+    "کنم",
+    "بشه",
+    "بشود",
+    "بذار",
+    "بگذار",
+    "بریز",
+    "بگذارم",
+    "لطفا",
+    "برام",
+    "براش",
+    "به",
+    "تو",
+    "توی",
+    "در",
+    "داخل",
+  ].map(normalizeSpeechText),
+);
+
+/** Strip add filler words (e.g. «رو اضافه کن») from a cleaned transcript. */
+export function stripAddFillers(text: string): string {
+  return text
+    .split(/\s+/)
+    .filter((word) => !ADD_CLAUSE_FILLERS.has(normalizeSpeechText(word)))
+    .join(" ")
+    .trim();
+}
+
+/** Fuzzy-match a spoken project name against known projects. */
+export function findBestProjectMatch(
+  projects: Project[],
+  spokenName: string,
+): Project | null {
+  if (!spokenName.trim()) return null;
+
+  let bestProject: Project | null = null;
+  let bestScore = 0;
+
+  for (const project of projects) {
+    if (project.archived) continue;
+    const score = titleSimilarity(spokenName, project.name);
+    if (score > bestScore) {
+      bestScore = score;
+      bestProject = project;
+    }
+  }
+
+  return bestScore >= MATCH_THRESHOLD ? bestProject : null;
 }
 
 export function applyLineBreaks(text: string): string {
