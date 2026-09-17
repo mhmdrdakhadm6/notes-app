@@ -201,6 +201,15 @@ function NotificationsBell() {
 
   return (
     <div ref={ref} className="relative">
+      <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
+        <defs>
+          <filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.025 0.025" numOctaves="2" seed="92" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
+            <feDisplacementMap in="SourceGraphic" in2="blurred" scale="18" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <button
         onClick={() => setOpen((o) => !o)}
         className="icon-btn icon-btn-sm text-text-muted hover:bg-surface-container hover:text-text-primary"
@@ -210,16 +219,18 @@ function NotificationsBell() {
         <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-priority-urgent" />
       </button>
       {open && (
-        <div className="nexdo-dropdown-centered animate-dropdown absolute left-0 top-11 z-50 w-80 overflow-hidden rounded-xl bg-surface-card shadow-soft border border-border-precision">
-          <div className="flex items-center justify-between border-b border-border-precision px-4 py-3">
+        <div className="notifications-glass-panel nexdo-dropdown-centered animate-dropdown absolute left-0 top-11 z-50 w-80 overflow-hidden rounded-[1.35rem]">
+          <div className="notifications-glass-content">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
             <span className="font-label-xs font-bold uppercase tracking-wide text-text-secondary">
               اعلان‌ها
             </span>
-            <span className="rounded-full bg-surface-container px-2 py-0.5 font-label-xs text-accent-glow">
+            <span className="rounded-full border border-blue-300/20 bg-blue-400/10 px-2 py-0.5 font-label-xs text-blue-200">
               ۳ جدید
             </span>
-          </div>
-          <div className="py-1">
+            </div>
+        </div>
+          <div className="px-2 py-2">
             {notifications.map((n, i) => (
               <button
                 key={i}
@@ -227,7 +238,7 @@ function NotificationsBell() {
                   setOpen(false);
                   setSubview("today");
                 }}
-                className="flex w-full items-start gap-3 px-4 py-3 text-right hover:bg-surface-container"
+                className="notifications-glass-item flex w-full items-start gap-3 rounded-xl px-3 py-3 text-right"
               >
                 <Icon name={n.icon} size="sm" className={cn("mt-0.5", n.color)} />
                 <span>

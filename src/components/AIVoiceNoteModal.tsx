@@ -441,6 +441,15 @@ export default function AIVoiceNoteModal() {
 
   return (
     <>
+      <svg aria-hidden="true" width="0" height="0" className="pointer-events-none absolute">
+        <defs>
+          <filter id="glass-distortion-voice" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.025 0.025" numOctaves="2" seed="92" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
+            <feDisplacementMap in="SourceGraphic" in2="blurred" scale="65" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -476,7 +485,7 @@ export default function AIVoiceNoteModal() {
                   ? "none"
                   : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
-            className={`relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-border-precision bg-surface-card shadow-[0_-24px_70px_rgba(0,0,0,0.55)] md:max-h-[85vh] md:rounded-3xl md:shadow-[0_30px_90px_rgba(0,0,0,0.65)] ${
+            className={`relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] border border-white/20 bg-transparent shadow-[0_-24px_70px_rgba(0,0,0,0.55)] md:max-h-[85vh] md:rounded-3xl md:shadow-[0_30px_90px_rgba(0,0,0,0.65)] notifications-glass-panel voice-glass-panel ${
               closing
                 ? "voice-sheet-out"
                 : dragY > 0
@@ -492,7 +501,7 @@ export default function AIVoiceNoteModal() {
               onPointerUp={handleDragEnd}
               onPointerCancel={handleDragEnd}
               style={{ touchAction: isMobileView() ? "none" : undefined }}
-              className="relative shrink-0 select-none border-b border-border-precision bg-gradient-to-b from-primary-container/15 via-primary-container/5 to-transparent"
+              className="voice-glass-header relative shrink-0 select-none border-b border-white/10"
             >
               <div
                 aria-hidden
@@ -532,7 +541,7 @@ export default function AIVoiceNoteModal() {
 
             <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:gap-4 md:p-5">
               <div
-                className="voice-stagger relative flex flex-col items-center gap-2.5 overflow-hidden rounded-xl border border-border-precision bg-surface-container-lowest/70 px-4 pb-4 pt-5"
+                className="voice-glass-card voice-stagger relative flex flex-col items-center gap-2.5 overflow-hidden rounded-2xl px-4 pb-4 pt-5"
                 style={{ animationDelay: "60ms" }}
               >
                 <div
@@ -607,7 +616,7 @@ export default function AIVoiceNoteModal() {
                 )}
 
                 {hasTranscript && (
-                  <div className="voice-stagger w-full rounded-xl border border-border-precision bg-surface-intermediate p-3.5">
+                  <div className="voice-glass-inset voice-stagger w-full rounded-xl p-3.5">
                     <p
                       dir="auto"
                       className="max-h-28 overflow-y-auto whitespace-pre-wrap text-[14px] leading-6 text-text-primary"
